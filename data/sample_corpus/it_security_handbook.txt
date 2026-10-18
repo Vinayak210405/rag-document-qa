@@ -1,0 +1,17 @@
+Velmora Systems - IT Security Handbook
+Document ID: ISP-2024-017
+Version: 3.1
+Effective date: 2024-09-01
+Status: Current
+
+1. Passwords
+Passwords must contain at least 14 characters. Passwords must be rotated every 180 days. Reuse of the previous 12 passwords is prohibited.
+
+2. Multi-factor authentication
+Multi-factor authentication is mandatory for all remote access. Employees must use a hardware security key; SMS codes are not accepted as a second factor.
+
+3. Incident reporting
+Suspected security incidents must be reported to the Security Operations Centre within 1 hour of discovery. Report phishing emails using the incident category SEC-4471. Report lost or stolen devices using the incident category SEC-4480.
+
+4. Device encryption
+All laptops must have full-disk encryption enabled before being connected to the corporate network. Error code ERR-5043 indicates that encryption has not been enabled on the device and network access has been blocked.

@@ -1,0 +1,29 @@
+# Secrets
+.env
+*.key
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Generated artefacts (never commit)
+storage/
+results/
+data/raw/
+data/uploads/
+
+# Model weights / caches
+*.safetensors
+*.bin
+*.gguf
+.cache/
+models/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

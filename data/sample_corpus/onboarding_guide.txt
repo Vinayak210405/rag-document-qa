@@ -1,0 +1,14 @@
+Velmora Systems - New Employee Onboarding Guide
+Document ID: HR-ONB-001
+Version: 2.0
+Effective date: 2025-01-01
+Status: Current
+
+1. First week
+New employees receive a laptop on their first day. The laptop must be encrypted according to the IT Security Handbook before it is connected to the corporate network.
+
+2. Probation
+The probation period lasts 90 days. During probation, annual leave may be taken only with written approval from the line manager.
+
+3. Buddy programme
+Each new employee is assigned a buddy for the first 60 days. The buddy answers day-to-day questions but does not approve expenses or leave.

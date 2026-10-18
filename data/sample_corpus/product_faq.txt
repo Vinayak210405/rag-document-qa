@@ -1,0 +1,14 @@
+Velmora Systems - AeroLink X200 Product FAQ
+Document ID: PRD-FAQ-009
+Version: 2.3
+Effective date: 2025-04-01
+Status: Current
+
+1. Specifications
+The AeroLink X200 (model number AX-200-B) weighs 1.2 kg and has a battery life of up to 14 hours on a single charge.
+
+2. Warranty
+The AeroLink X200 is covered by a 24-month limited warranty from the date of purchase. The warranty does not cover water damage.
+
+3. Charging
+The device charges fully in 90 minutes using the supplied 65 W USB-C adapter.

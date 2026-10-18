@@ -1,0 +1,478 @@
+{
+  "name": "velmora-qa",
+  "version": "0.1.0",
+  "created": "2026-10-18",
+  "description": "24 questions over the 7-document fictional Velmora Systems corpus. Questions and labels were authored by Claude and have NOT been human-verified (human_verified=false). Evidence is labelled by verbatim quote, not chunk ID, so labels remain valid across chunking strategies.",
+  "corpus_sha256": "94f4980884a155b5b0bf8ad22a93a924ffd382fb0494db843fe2cd900623487c",
+  "questions": [
+    {
+      "id": "q001",
+      "category": "direct_factual",
+      "question": "What is the minimum password length?",
+      "answerable": true,
+      "reference_answer": "At least 14 characters.",
+      "evidence": [
+        {
+          "doc": "it_security_handbook.txt",
+          "quote": "Passwords must contain at least 14 characters.",
+          "grade": 2
+        }
+      ],
+      "distractors": [],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q002",
+      "category": "direct_factual",
+      "question": "What is the daily meal allowance for international travel?",
+      "answerable": true,
+      "reference_answer": "85 USD per day for international travel.",
+      "evidence": [
+        {
+          "doc": "expense_policy.txt",
+          "quote": "The daily meal allowance is 60 USD for domestic travel and 85 USD for international travel.",
+          "grade": 2
+        }
+      ],
+      "distractors": [],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q003",
+      "category": "direct_factual",
+      "question": "How long is the warranty on the AeroLink X200?",
+      "answerable": true,
+      "reference_answer": "24 months, a limited warranty from the date of purchase.",
+      "evidence": [
+        {
+          "doc": "product_faq.txt",
+          "quote": "The AeroLink X200 is covered by a 24-month limited warranty from the date of purchase.",
+          "grade": 2
+        }
+      ],
+      "distractors": [],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q004",
+      "category": "direct_factual",
+      "question": "How many days does the probation period last?",
+      "answerable": true,
+      "reference_answer": "90 days.",
+      "evidence": [
+        {
+          "doc": "onboarding_guide.txt",
+          "quote": "The probation period lasts 90 days.",
+          "grade": 2
+        }
+      ],
+      "distractors": [],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q005",
+      "category": "paraphrase",
+      "question": "How often do I have to change my login password?",
+      "answerable": true,
+      "reference_answer": "Every 180 days.",
+      "evidence": [
+        {
+          "doc": "it_security_handbook.txt",
+          "quote": "Passwords must be rotated every 180 days.",
+          "grade": 2
+        }
+      ],
+      "distractors": [],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q006",
+      "category": "paraphrase",
+      "question": "How long does the AeroLink X200 run before it needs recharging?",
+      "answerable": true,
+      "reference_answer": "Up to 14 hours on a single charge.",
+      "evidence": [
+        {
+          "doc": "product_faq.txt",
+          "quote": "The AeroLink X200 (model number AX-200-B) weighs 1.2 kg and has a battery life of up to 14 hours on a single charge.",
+          "grade": 2
+        }
+      ],
+      "distractors": [],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q007",
+      "category": "paraphrase",
+      "question": "Can I use text message codes for the second login step when working remotely?",
+      "answerable": true,
+      "reference_answer": "No. A hardware security key is required; SMS codes are not accepted as a second factor.",
+      "evidence": [
+        {
+          "doc": "it_security_handbook.txt",
+          "quote": "Employees must use a hardware security key; SMS codes are not accepted as a second factor.",
+          "grade": 2
+        }
+      ],
+      "distractors": [
+        {
+          "doc": "it_security_handbook.txt",
+          "quote": "Multi-factor authentication is mandatory for all remote access."
+        }
+      ],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q008",
+      "category": "exact_identifier",
+      "question": "What does error code ERR-5043 mean?",
+      "answerable": true,
+      "reference_answer": "Disk encryption has not been enabled on the device, and network access has been blocked.",
+      "evidence": [
+        {
+          "doc": "it_security_handbook.txt",
+          "quote": "Error code ERR-5043 indicates that encryption has not been enabled on the device and network access has been blocked.",
+          "grade": 2
+        }
+      ],
+      "distractors": [],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q009",
+      "category": "exact_identifier",
+      "question": "What is Form EX-210 used for?",
+      "answerable": true,
+      "reference_answer": "Submitting expenses, which must be done within 30 days of being incurred.",
+      "evidence": [
+        {
+          "doc": "expense_policy.txt",
+          "quote": "Expenses must be submitted on Form EX-210 within 30 days of being incurred.",
+          "grade": 2
+        }
+      ],
+      "distractors": [],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q010",
+      "category": "exact_identifier",
+      "question": "What is incident category SEC-4480 for?",
+      "answerable": true,
+      "reference_answer": "Reporting lost or stolen devices.",
+      "evidence": [
+        {
+          "doc": "it_security_handbook.txt",
+          "quote": "Report lost or stolen devices using the incident category SEC-4480.",
+          "grade": 2
+        }
+      ],
+      "distractors": [
+        {
+          "doc": "it_security_handbook.txt",
+          "quote": "Report phishing emails using the incident category SEC-4471."
+        }
+      ],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q011",
+      "category": "exact_identifier",
+      "question": "What are the weight and battery life of model number AX-200-B?",
+      "answerable": true,
+      "reference_answer": "It weighs 1.2 kg and has a battery life of up to 14 hours on a single charge.",
+      "evidence": [
+        {
+          "doc": "product_faq.txt",
+          "quote": "The AeroLink X200 (model number AX-200-B) weighs 1.2 kg and has a battery life of up to 14 hours on a single charge.",
+          "grade": 2
+        }
+      ],
+      "distractors": [],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q012",
+      "category": "multi_document",
+      "question": "How many days of annual leave does a new employee receive, and can they take it freely during probation?",
+      "answerable": true,
+      "reference_answer": "24 days of paid annual leave per calendar year; during probation, leave may be taken only with written approval from the line manager.",
+      "evidence": [
+        {
+          "doc": "hr_leave_policy_v2.txt",
+          "quote": "Full-time employees receive 24 days of paid annual leave per calendar year.",
+          "grade": 2
+        },
+        {
+          "doc": "onboarding_guide.txt",
+          "quote": "During probation, annual leave may be taken only with written approval from the line manager.",
+          "grade": 2
+        }
+      ],
+      "distractors": [
+        {
+          "doc": "hr_leave_policy_v1.txt",
+          "quote": "Full-time employees receive 20 days of paid annual leave per calendar year."
+        }
+      ],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q013",
+      "category": "multi_document",
+      "question": "What must be done to a new laptop before it can join the corporate network, and what happens if that is not done?",
+      "answerable": true,
+      "reference_answer": "Full-disk encryption must be enabled first; otherwise network access is blocked (error code ERR-5043).",
+      "evidence": [
+        {
+          "doc": "it_security_handbook.txt",
+          "quote": "All laptops must have full-disk encryption enabled before being connected to the corporate network.",
+          "grade": 2
+        },
+        {
+          "doc": "it_security_handbook.txt",
+          "quote": "Error code ERR-5043 indicates that encryption has not been enabled on the device and network access has been blocked.",
+          "grade": 2
+        },
+        {
+          "doc": "onboarding_guide.txt",
+          "quote": "The laptop must be encrypted according to the IT Security Handbook before it is connected to the corporate network.",
+          "grade": 1
+        }
+      ],
+      "distractors": [],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q014",
+      "category": "multi_hop",
+      "question": "What is the largest expense that the head of the Berlin office can approve?",
+      "answerable": true,
+      "reference_answer": "10,000 USD: the Berlin office is led by Lena Hoffmann, a Director, and Directors may approve expenses up to 10,000 USD.",
+      "evidence": [
+        {
+          "doc": "org_directory.txt",
+          "quote": "The Berlin office is led by Lena Hoffmann, who holds the title of Director, Central Europe.",
+          "grade": 2
+        },
+        {
+          "doc": "expense_policy.txt",
+          "quote": "Directors may approve expenses up to 10,000 USD.",
+          "grade": 2
+        }
+      ],
+      "distractors": [
+        {
+          "doc": "expense_policy.txt",
+          "quote": "Line managers may approve expenses up to 1,000 USD."
+        }
+      ],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q015",
+      "category": "multi_hop",
+      "question": "Who must approve a 15,000 USD expense?",
+      "answerable": true,
+      "reference_answer": "The Vice President of Finance, Maria Castellanos, because expenses above 10,000 USD require that approval.",
+      "evidence": [
+        {
+          "doc": "expense_policy.txt",
+          "quote": "Expenses above 10,000 USD require approval from the Vice President of Finance.",
+          "grade": 2
+        },
+        {
+          "doc": "org_directory.txt",
+          "quote": "The Vice President of Finance is Maria Castellanos.",
+          "grade": 2
+        }
+      ],
+      "distractors": [],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q016",
+      "category": "conflicting_outdated",
+      "question": "How many days of annual leave do full-time employees receive?",
+      "answerable": true,
+      "reference_answer": "24 days per calendar year under the current policy (version 2.0, effective 2025-01-01). Version 1.0, which gave 20 days, is superseded.",
+      "evidence": [
+        {
+          "doc": "hr_leave_policy_v2.txt",
+          "quote": "Full-time employees receive 24 days of paid annual leave per calendar year.",
+          "grade": 2
+        }
+      ],
+      "distractors": [
+        {
+          "doc": "hr_leave_policy_v1.txt",
+          "quote": "Full-time employees receive 20 days of paid annual leave per calendar year."
+        }
+      ],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q017",
+      "category": "conflicting_outdated",
+      "question": "How many weeks of paid parental leave can a primary caregiver take?",
+      "answerable": true,
+      "reference_answer": "16 weeks under the current policy (version 2.0). The superseded version 1.0 gave 12 weeks.",
+      "evidence": [
+        {
+          "doc": "hr_leave_policy_v2.txt",
+          "quote": "Primary caregivers are entitled to 16 weeks of paid parental leave.",
+          "grade": 2
+        }
+      ],
+      "distractors": [
+        {
+          "doc": "hr_leave_policy_v1.txt",
+          "quote": "Primary caregivers are entitled to 12 weeks of paid parental leave."
+        }
+      ],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q018",
+      "category": "conflicting_outdated",
+      "question": "How many unused leave days can be carried over to the next year, and when do they expire?",
+      "answerable": true,
+      "reference_answer": "A maximum of 5 days under the current policy, expiring on 31 March. The superseded version 1.0 allowed 10 days.",
+      "evidence": [
+        {
+          "doc": "hr_leave_policy_v2.txt",
+          "quote": "Employees may carry over a maximum of 5 unused annual leave days into the following year.",
+          "grade": 2
+        },
+        {
+          "doc": "hr_leave_policy_v2.txt",
+          "quote": "Carried-over days expire on 31 March.",
+          "grade": 1
+        }
+      ],
+      "distractors": [
+        {
+          "doc": "hr_leave_policy_v1.txt",
+          "quote": "Employees may carry over a maximum of 10 unused annual leave days into the following year."
+        }
+      ],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q019",
+      "category": "unanswerable",
+      "question": "What is Velmora's policy on working remotely from another country?",
+      "answerable": false,
+      "reference_answer": "The documents do not contain enough information to answer this question.",
+      "evidence": [],
+      "distractors": [
+        {
+          "doc": "it_security_handbook.txt",
+          "quote": "Multi-factor authentication is mandatory for all remote access."
+        }
+      ],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q020",
+      "category": "unanswerable",
+      "question": "What is the annual salary of Velmora's CEO?",
+      "answerable": false,
+      "reference_answer": "The documents do not contain enough information to answer this question.",
+      "evidence": [],
+      "distractors": [],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q021",
+      "category": "unanswerable",
+      "question": "Which country won the 2022 FIFA World Cup?",
+      "answerable": false,
+      "reference_answer": "The documents do not contain this information. (A model may know the answer from training data, but it must not answer from outside the supplied evidence.)",
+      "evidence": [],
+      "distractors": [],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q022",
+      "category": "insufficient_evidence",
+      "question": "How many paid sick days is an employee entitled to each year?",
+      "answerable": false,
+      "reference_answer": "The documents do not state a sick-leave entitlement; they only require a doctor's certificate after more than 3 consecutive working days of absence.",
+      "evidence": [],
+      "distractors": [
+        {
+          "doc": "hr_leave_policy_v2.txt",
+          "quote": "An employee who is absent for more than 3 consecutive working days must provide a doctor's certificate."
+        },
+        {
+          "doc": "hr_leave_policy_v2.txt",
+          "quote": "Sick absences must be reported to the line manager before 10:00 on the first day of absence."
+        }
+      ],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q023",
+      "category": "insufficient_evidence",
+      "question": "What is the expense approval limit for the head of the Singapore office?",
+      "answerable": false,
+      "reference_answer": "The head of the Singapore office is a Senior Manager, but the expense policy states no approval limit for that title.",
+      "evidence": [],
+      "distractors": [
+        {
+          "doc": "org_directory.txt",
+          "quote": "The Singapore office is led by Arjun Menon, who holds the title of Senior Manager, Asia-Pacific Operations."
+        },
+        {
+          "doc": "expense_policy.txt",
+          "quote": "Line managers may approve expenses up to 1,000 USD."
+        },
+        {
+          "doc": "expense_policy.txt",
+          "quote": "Directors may approve expenses up to 10,000 USD."
+        }
+      ],
+      "label_source": "claude_authored",
+      "human_verified": false
+    },
+    {
+      "id": "q024",
+      "category": "insufficient_evidence",
+      "question": "How much does the AeroLink X200 cost?",
+      "answerable": false,
+      "reference_answer": "The documents do not state a price for the AeroLink X200.",
+      "evidence": [],
+      "distractors": [
+        {
+          "doc": "product_faq.txt",
+          "quote": "The AeroLink X200 is covered by a 24-month limited warranty from the date of purchase."
+        }
+      ],
+      "label_source": "claude_authored",
+      "human_verified": false
+    }
+  ]
+}

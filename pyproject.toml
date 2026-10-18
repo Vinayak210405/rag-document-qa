@@ -1,0 +1,40 @@
+[project]
+name = "rag-document-qa"
+version = "0.1.0"
+description = "Evaluation-driven document QA with retrieval-augmented generation"
+readme = "README.md"
+requires-python = ">=3.11"
+
+# Core dependencies only. Heavy, milestone-specific packages live in extras so
+# the base install and the test suite stay small and fast.
+# numpy is declared now (used from Milestone 1) so the lockfile validates it
+# against every extra below.
+dependencies = [
+    "numpy>=2.0,<3",
+    "pydantic>=2.7,<3",
+    "pydantic-settings>=2.4,<3",
+]
+
+[project.optional-dependencies]
+ingest     = ["pypdf>=5,<7", "python-docx>=1.1,<2"]
+vector     = ["chromadb>=1.0,<2"]
+embeddings = ["sentence-transformers>=3,<7"]   # also provides CrossEncoder (M4); pulls in PyTorch
+bm25       = ["rank-bm25>=0.2.2,<0.3"]
+api        = ["fastapi>=0.115,<1", "uvicorn[standard]>=0.30,<1", "python-multipart>=0.0.9"]
+ui         = ["streamlit>=1.40,<2"]
+eval       = ["ragas>=0.4,<0.5"]
+
+[dependency-groups]
+dev = ["pytest>=8,<10"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# Default runs are offline: tests needing model weights or an API key are
+# opt-in via: pytest -m "requires_model or requires_api"
+# (Markers are declared now but first exercised in Milestone 1.)
+addopts = "-ra --strict-markers -m 'not requires_model and not requires_api'"
+markers = [
+    "requires_model: needs downloaded model weights (network on first run)",
+    "requires_api: needs a live LLM endpoint or API key",
+]
