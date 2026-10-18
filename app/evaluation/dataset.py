@@ -84,7 +84,7 @@ class Question(BaseModel):
     # Plausible-but-wrong or non-answering passages (e.g. a superseded policy).
     # Retrieval may surface them; the answer must not rely on them.
     distractors: list[Passage] = Field(default_factory=list)
-    label_source: Literal["claude_authored", "human_authored"]
+    label_source: Literal["claude_authored", "human_authored", "synthetic_llm"]
     human_verified: bool = False
 
     @model_validator(mode="after")

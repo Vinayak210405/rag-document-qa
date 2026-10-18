@@ -163,3 +163,11 @@ def test_category_and_answerable_flag_must_agree() -> None:
 def test_unknown_fields_are_rejected() -> None:
     with pytest.raises(ValidationError):
         Question.model_validate(_question(typo_field="oops"))
+
+
+def test_synthetic_labels_are_a_distinct_accepted_source() -> None:
+    """M8 adds an LLM-generated set; it must be distinguishable from authored labels."""
+    q = Question.model_validate(_question(label_source="synthetic_llm"))
+    assert q.label_source == "synthetic_llm" and q.human_verified is False
+    with pytest.raises(ValidationError):
+        Question.model_validate(_question(label_source="made_up"))

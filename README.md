@@ -19,6 +19,7 @@ verification path. The retrieval core is implemented in this repo, not hidden be
 | 7 | Semantic chunking | Not started |
 | 8 | Ragas metrics | Not started |
 | 9 | Security, benchmark dashboard, demo docs | Not started |
+| 10 | LlamaIndex pipeline over the same Chroma index, benchmarked against ours | Not started |
 
 No benchmark results exist yet; none are claimed.
 
@@ -27,15 +28,15 @@ No benchmark results exist yet; none are claimed.
 Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-uv sync                      # core + dev tools only (~13 small packages)
+uv sync                      # core dependencies + pytest (no PyTorch)
 cp .env.example .env         # optional for now; nothing in M0 needs it
 uv run pytest                # 25 tests, fully offline, < 1 second
 uv run python -m app.evaluation.dataset --show   # inspect the eval dataset
 ```
 
-Heavy dependencies are optional extras, installed only when a milestone needs them:
-`uv sync --extra ingest --extra vector --extra embeddings --extra api --extra ui`
-(extras: `ingest`, `vector`, `embeddings`, `bm25`, `api`, `ui`, `eval`). `uv.lock` resolves all extras together.
+Heavy or optional dependencies are extras: `embeddings` (PyTorch, for real embedding models), `bm25`, `eval` (Ragas),
+`llamaindex`. `uv.lock` resolves all extras together, so incompatibilities surface early.
+See [docs/claims.md](docs/claims.md) for which claims each milestone earns.
 
 ## Repository layout
 

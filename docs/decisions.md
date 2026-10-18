@@ -40,3 +40,23 @@ decide their units (characters vs. tokens) deliberately.
 All 24 questions are `label_source: claude_authored`, `human_verified: false`. A test enforces that
 Claude-authored labels cannot claim human verification. Reviewing them and flipping the flag is a task for the
 project owner (see README).
+
+## Amendments (Milestone 0 revision)
+
+### D2a. LlamaIndex is kept, as a measured comparison (M10), not as the core
+The project description names LlamaIndex, so we make that claim true without letting a framework hide the
+retrieval logic. The core stays ours; M10 builds a LlamaIndex pipeline over the **same Chroma index** and benchmarks
+it on the **same evaluation set**. The interview story becomes "built it from scratch, then benchmarked it against the
+framework". Compatibility verified: `llama-index-core 0.14.25` + `llama-index-vector-stores-chroma 0.6.0` +
+`chromadb 1.5.9` resolve together (`uv lock`).
+
+### D5a. Baseline dependencies moved into core
+After M0, the packages Milestone 1 needs (pypdf, python-docx, chromadb, FastAPI, uvicorn, python-multipart, Streamlit,
+httpx) are core dependencies so a plain `uv sync` yields a working system (important for Windows users who would
+otherwise have to remember `--extra` flags on every command). Extras remain only for genuinely heavy or optional
+pieces: `embeddings` (PyTorch), `bm25`, `eval` (Ragas), `llamaindex`. The default `pytest` run still needs no network.
+
+### D8. Claims are earned, not asserted
+`docs/claims.md` maps every phrase of the project description to the milestone and the measurement that earns it.
+The dataset schema gained a `synthetic_llm` label source so the Ragas-generated "automated QA test set" (M8) can never
+be confused with authored or human-verified labels.
