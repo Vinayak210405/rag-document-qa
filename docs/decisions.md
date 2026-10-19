@@ -60,3 +60,48 @@ pieces: `embeddings` (PyTorch), `bm25`, `eval` (Ragas), `llamaindex`. The defaul
 `docs/claims.md` maps every phrase of the project description to the milestone and the measurement that earns it.
 The dataset schema gained a `synthetic_llm` label source so the Ragas-generated "automated QA test set" (M8) can never
 be confused with authored or human-verified labels.
+
+## Milestone 1 decisions
+
+### D9. Chunk sizes are in characters
+Model-independent and needs no tokenizer; ~4 characters is about 1 English token. Defaults: 500 chars, 80 overlap
+(`RAG_CHUNK_MAX_CHARS`, `RAG_CHUNK_OVERLAP_CHARS`). Token budgets arrive with context assembly (M4).
+
+### D10. Chroma stores; our code ranks
+ChromaDB is the durable store for (id, text, vector, metadata). Ranking is our own NumPy cosine similarity and top-k
+over the full matrix (exact, brute-force, O(n*d) per query). Transparent and unit-tested; fine to ~1e5 chunks.
+Beyond that, Chroma's approximate HNSW search becomes the thing to benchmark against this baseline.
+Verified on chromadb 1.5.9: reopening a collection with different metadata silently keeps the old metadata, so the
+embedding-model guard (`IndexMismatchError`) is our own explicit check.
+
+### D11. Streamlit calls FastAPI over HTTP; endpoints are plain `def`
+The UI is a real client of the API (as in deployment) and only the API process touches Chroma (two writers on one
+persistent store is unsafe). Embedding and the LLM call are blocking, so endpoints are `def`: FastAPI runs them in a
+thread pool and the event loop stays free. `async def` would have blocked it.
+
+### D12. An offline, non-semantic `hashing` embedder
+A deterministic bag-of-words (feature hashing) embedder: no download, no PyTorch. It makes tests reproducible and lets
+the app run offline. It is NOT semantic and has no IDF weighting; do not judge retrieval quality with it.
+Observed in the live demo: adding two tiny unrelated PDF chunks pushed the right chunk for `ERR-5043` from #1 to #2,
+because the generic word "code" counted as much as the rare identifier and short chunks score high under cosine.
+That is the motivation for BM25 (M3) and for measuring (M2) instead of eyeballing.
+
+### D13. Re-ingesting a file replaces it
+`replace_document` deletes the document's older chunks, then adds the new ones, so edits never leave stale chunks.
+It is not atomic and does not skip unchanged files; hashing, versioning and atomicity are Milestone 6.
+
+### D14. Grounding is requested, not guaranteed
+The prompt asks for sources-only answers, citations, abstention, and distrust of source text (angle brackets inside
+sources are escaped so a document cannot close the `<source>` tag). The code only checks that cited numbers refer to
+sources that were actually supplied. Whether claims are supported, and whether abstention happens when it should, are
+measured later (M5, M8), not assumed.
+
+### Known limitations after M1
+- A chunk spanning several sections records only its first heading.
+- Very short chunks (e.g. a 30-character PDF page) are indexed as-is and can rank oddly; context selection (M4) may
+  need a minimum size or merging.
+- Top-k always returns k results, even with near-zero scores; no relevance threshold yet.
+- Heading detection is heuristic for TXT/PDF (numbered, ALL CAPS, first line); DOCX uses real styles. PDF layout, tables
+  and multi-column pages are not analysed. Scanned PDFs are rejected with a clear message (OCR hook only).
+- No authentication or per-document permissions yet (M9). The upload size cap and file-name sanitising are minimal.
+- `starlette.testclient` emits a deprecation warning when used with httpx; harmless today, may need `httpx2` later.

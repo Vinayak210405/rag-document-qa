@@ -1,1 +1,1 @@
-"""FastAPI endpoints. Milestone 1."""
+"""FastAPI endpoints."""

@@ -50,3 +50,21 @@ def test_api_key_is_not_leaked_in_repr_or_str(monkeypatch: pytest.MonkeyPatch) -
     assert "sk-super-secret" not in str(s)
     assert s.llm_api_key is not None
     assert s.llm_api_key.get_secret_value() == "sk-super-secret"
+
+
+def test_every_key_in_env_example_is_a_real_setting_and_parses() -> None:
+    """`extra="ignore"` would hide a typo'd key, so check the template explicitly."""
+    import re
+    from pathlib import Path
+
+    template = Path(__file__).resolve().parents[2] / ".env.example"
+    keys = [m.group(1) for ln in template.read_text().splitlines() if (m := re.match(r"#?\s*(RAG_[A-Z_]+)=", ln))]
+    assert keys and set(keys) <= {"RAG_" + f.upper() for f in Settings.model_fields}
+    assert Settings(_env_file=str(template)).chunk_overlap_chars == 80
+
+
+def test_overlap_must_be_smaller_than_chunk_size(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RAG_CHUNK_MAX_CHARS", "200")
+    monkeypatch.setenv("RAG_CHUNK_OVERLAP_CHARS", "200")
+    with pytest.raises(ValidationError, match="smaller than"):
+        make()
