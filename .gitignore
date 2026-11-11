@@ -1,29 +1,17 @@
-# Secrets
-.env
-*.key
-
-# Python
-.venv/
+﻿.venv/
+venv/
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
+.env
+.env.*
+!.env.example
+chroma_db/
+chroma/
+*.db
+*.sqlite3
+.pyright/
 .ruff_cache/
-*.egg-info/
-
-# Generated artefacts (never commit)
-storage/
-results/
-data/raw/
-data/uploads/
-
-# Model weights / caches
-*.safetensors
-*.bin
-*.gguf
-.cache/
-models/
-
-# OS / editor
-.DS_Store
 .idea/
 .vscode/
+.DS_Store
