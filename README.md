@@ -11,7 +11,7 @@ verification path. The retrieval core is implemented in this repo, not hidden be
 |---|---|---|
 | 0 | Foundation: structure, config, sample corpus, labelled eval set, offline tests | Done |
 | 1 | Baseline RAG: ingestion, chunking, embeddings, ChromaDB, own cosine top-k, grounded answers, API + UI | **Implemented, verified offline** (real embedding model and Ollama not yet run; see "Verification status") |
-| 2 | Evaluation: Recall@k, MRR, nDCG, benchmark runner | Not started |
+| 2 | Evaluation: Recall@k, MRR, nDCG, benchmark runner, run comparison | **Implemented, verified offline** (numbers so far come from the non-semantic stand-in embedder only) |
 | 3 | Hybrid retrieval: BM25 + RRF | Not started |
 | 4 | Cross-encoder reranking, context assembly | Not started |
 | 5 | Citation validation, abstention | Not started |
@@ -41,7 +41,7 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```powershell
 uv sync                  # core dependencies + pytest (no PyTorch)
-uv run pytest            # 176 tests, fully offline, ~15 s
+uv run pytest            # 233 tests, fully offline, ~15 s
 ```
 
 **Windows tip:** if your system Python is broken or missing, make uv use its own, permanently:
@@ -84,6 +84,42 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/ask -ContentType "appl
 Errors: 415 unsupported type, 422 bad/empty/scanned file or invalid question, 409 nothing indexed (or model mismatch),
 413 file too large, 502 LLM unreachable (never a made-up answer), 503 embedding backend unavailable.
 
+## Evaluation (Milestone 2)
+
+```powershell
+# Retrieval benchmark: builds a fresh in-memory index, scores every question, saves JSON + CSV under results\
+uv run python -m app.evaluation.benchmark --label dense-hashing --embedder hashing
+# With the real model (after: uv sync --extra embeddings)
+uv run python -m app.evaluation.benchmark --label dense-bge --embedder sentence_transformers
+# Compare two runs: deltas plus how many questions got better / worse / stayed the same
+uv run python -m app.evaluation.compare results\run_a.json results\run_b.json
+```
+
+Metrics (details in [docs/decisions.md](docs/decisions.md), D15-D20): Hit@k, Recall@k (share of *required* evidence found),
+reciprocal rank (MRR is its mean, truncated at the retrieval depth), and graded nDCG@k where every chunk in the index is
+judged by content. Every run also records a **random-ranking control**, tie/no-signal flags, and the outdated-source-above-gold
+rate, because averages alone can mislead on a tiny index. Same configuration + same dataset reproduces the same
+`results_sha256`; the runner refuses to run if the dataset no longer matches the corpus.
+
+### Reference run (stand-in embedder, NOT semantic) - `docs/results/m2-dense-hashing-20261105T120543Z-19560425`
+
+| Metric (18 answerable questions) | Pipeline | Random ranking |
+|---|---|---|
+| MRR@5 | 0.778 | 0.219 |
+| Hit@1 | 0.667 | 0.103 |
+| Hit@3 | 0.889 | 0.285 |
+| Hit@5 | 0.889 | 0.462 |
+| Recall@5 (required evidence) | 0.861 | 0.418 |
+| nDCG@5 | 0.785 | 0.260 |
+
+How to read this honestly:
+- These numbers describe the offline **hashing** embedder (bag of words), not a semantic model. They exist to prove the
+  harness works. The meaningful baseline is the real `bge-small` run, which has not been done yet.
+- The index has only 12 chunks, so even random ranking reaches Hit@5 of 0.46. Compare against the control, not against 1.0.
+- Two questions have their gold rank decided by a score tie and one by a zero score; the conflicting-documents questions
+  fail partly because `v1` sorts before `v2` when scores tie (D20).
+- The questions are Claude-authored and not human-verified; categories have 2-4 questions each. Differences are indicative only.
+
 ## Configuration
 
 All settings use the `RAG_` prefix; see `.env.example`. Never commit `.env`. Chunk sizes are in characters.
@@ -92,7 +128,7 @@ All settings use the `RAG_` prefix; see `.env.example`. Never commit `.env`. Chu
 
 | Verified here | Not verified here |
 |---|---|
-| 176 automated tests, incl. real ChromaDB on disk, PDF (hand-built), DOCX, TXT parsing | The real `bge-small` model (no Hugging Face access in the build sandbox): only the wrapper is tested, with a stub; its API names were checked against the sentence-transformers 6.1.0 wheel source. Run `uv run pytest -m requires_model` |
+| 221 automated tests, incl. real ChromaDB on disk, PDF (hand-built), DOCX, TXT parsing | The real `bge-small` model (no Hugging Face access in the build sandbox): only the wrapper is tested, with a stub; its API names were checked against the sentence-transformers 6.1.0 wheel source. Run `uv run pytest -m requires_model` |
 | Real uvicorn server over HTTP: upload, retrieve, ask, error statuses, restart persistence | A real LLM (Ollama). Only an OpenAI-compatible stand-in server was used. Run `uv run pytest -m requires_api` |
 | Real Streamlit server boots; UI driven headlessly against the live API | A browser session, and anything on Windows |
 | 7 injected bugs in core logic were all caught by the tests | Retrieval *quality* (no metrics until Milestone 2) |
@@ -117,3 +153,16 @@ multi-document (2), multi-hop (2), conflicting/outdated (3), unanswerable (3), i
   large real corpus. A larger set is planned before drawing ablation conclusions.
 - Corpus and questions were written by the same author (an LLM), so lexical overlap between question and source
   may be unrealistically high or low in places.
+
+## Hybrid retrieval (Milestone 3)
+
+`RAG_RETRIEVER=hybrid` fuses dense cosine and our own BM25 with Reciprocal Rank Fusion. Benchmark and compare:
+
+```
+uv run python -m app.evaluation.benchmark --label dense  --retriever dense  --embedder hashing
+uv run python -m app.evaluation.benchmark --label hybrid --retriever hybrid --embedder hashing
+uv run python -m app.evaluation.compare results/<dense>.json results/<hybrid>.json
+```
+
+Reference runs (stand-in hashing embedder, 24 Claude-authored questions) are in `docs/results/m3-*`. The difference is
+about one question and is not a claim that hybrid beats dense; see decision D21. Tests: 233 passing offline.

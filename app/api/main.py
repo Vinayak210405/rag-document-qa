@@ -20,7 +20,7 @@ from app.api.schemas import (
 from app.config import Settings, get_settings
 from app.embeddings import EmbeddingBackendError
 from app.generation import LLMError
-from app.indexing import IndexMismatchError
+from app.indexing import IndexMismatchError, StorageError
 from app.ingestion import (
     EmptyDocumentError, ExtractionError, IngestionError, UnsupportedFileTypeError,
 )
@@ -39,6 +39,7 @@ _ERROR_STATUS: list[tuple[type[Exception], int]] = [
     (IngestionError, 400),
     (EmptyIndexError, 409),
     (IndexMismatchError, 409),
+    (StorageError, 503),
     (LLMError, 502),
     (EmbeddingBackendError, 503),
 ]

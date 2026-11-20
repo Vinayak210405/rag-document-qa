@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     chunk_max_chars: int = Field(500, ge=100, le=4000)
     chunk_overlap_chars: int = Field(80, ge=0)
     default_top_k: int = Field(4, ge=1, le=20)
+    retriever: Literal["dense", "hybrid"] = "dense"  # hybrid = dense + BM25 fused with RRF
+    hybrid_candidates: int = Field(20, ge=1, le=200)
+    rrf_k: int = Field(60, ge=0)
     chroma_collection: str = Field("documents", min_length=3)  # Chroma requires >= 3 chars
 
     # --- Uploads ----------------------------------------------------------
