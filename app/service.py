@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Protocol
 from dataclasses import dataclass
 
 from app.chunking import Chunker, SentenceChunker
@@ -18,6 +19,8 @@ from app.indexing import ChromaVectorStore, DocumentInfo
 from app.ingestion import EmptyDocumentError, parse_document
 from app.retrieval import InvalidQueryError, RetrievedChunk, normalize_query
 from app.retrieval.dense import DenseRetriever
+from app.retrieval.hybrid import HybridRetriever
+from app.retrieval.types import RetrievedChunk
 from app.utils.logging import log_event
 
 logger = logging.getLogger(__name__)
@@ -97,6 +100,10 @@ class AnswerResult:
     embedding_model: str
 
 
+class Retriever(Protocol):
+    def retrieve(self, query: str, top_k_: int) -> list[RetrievedChunk]: ...
+
+
 def _ms(start: float) -> float:
     return round((time.perf_counter() - start) * 1000, 2)
 
@@ -107,7 +114,7 @@ class RagService:
         *,
         embedder: Embedder,
         store: ChromaVectorStore,
-        retriever: DenseRetriever,
+        retriever: Retriever,
         chunker: Chunker,
         llm: LLMClient,
         default_top_k: int = 4,
@@ -219,7 +226,10 @@ def build_service(settings: Settings) -> RagService:
     return RagService(
         embedder=embedder,
         store=store,
-        retriever=DenseRetriever(store, embedder),
+        retriever=(
+            HybridRetriever(store, embedder, candidates=settings.hybrid_candidates, rrf_k=settings.rrf_k)
+            if settings.retriever == "hybrid" else DenseRetriever(store, embedder)
+        ),
         chunker=SentenceChunker(settings.chunk_max_chars, settings.chunk_overlap_chars),
         llm=llm,
         default_top_k=settings.default_top_k,

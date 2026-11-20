@@ -10,6 +10,7 @@ silently keeps the OLD metadata, so the embedding-model guard below is our own e
 from __future__ import annotations
 
 import logging
+import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
@@ -17,6 +18,7 @@ from typing import Any, Sequence
 import chromadb
 import numpy as np
 from chromadb.config import Settings as ChromaSettings
+from chromadb.errors import ChromaError
 
 from app.chunking.base import Chunk
 from app.utils.logging import log_event
@@ -25,6 +27,10 @@ logger = logging.getLogger(__name__)
 
 _PAGE = 5000  # rows fetched per Chroma call
 _BATCH = 500  # rows written per Chroma call
+
+
+class StorageError(RuntimeError):
+    """The vector database could not be opened or written (message names the folder and fixes)."""
 
 
 class IndexMismatchError(RuntimeError):
@@ -53,30 +59,50 @@ class DocumentInfo:
 
 class ChromaVectorStore:
     def __init__(
-        self, persist_dir: Path, collection_name: str, embedding_model: str, embedding_dim: int
+        self, persist_dir: Path | None, collection_name: str, embedding_model: str, embedding_dim: int
     ) -> None:
-        persist_dir.mkdir(parents=True, exist_ok=True)
-        self._client = chromadb.PersistentClient(
-            path=str(persist_dir), settings=ChromaSettings(anonymized_telemetry=False)
-        )
-        self._collection = self._client.get_or_create_collection(
-            name=collection_name,
-            embedding_function=None,  # we always supply vectors; never trigger Chroma's default model
-            metadata={
-                "hnsw:space": "cosine",
-                "embedding_model": embedding_model,
-                "embedding_dim": embedding_dim,
-            },
-        )
+        """Open (or create) the store. ``persist_dir=None`` gives a throw-away in-memory store.
+
+        In-memory clients share state *within a process*, so callers must use a unique
+        ``collection_name`` for each isolated in-memory store (the benchmark runner does).
+        """
+        chroma_settings = ChromaSettings(anonymized_telemetry=False)
+        try:
+            if persist_dir is None:
+                self._client = chromadb.EphemeralClient(settings=chroma_settings)
+            else:
+                persist_dir.mkdir(parents=True, exist_ok=True)
+                self._client = chromadb.PersistentClient(path=str(persist_dir), settings=chroma_settings)
+            self._collection = self._client.get_or_create_collection(
+                name=collection_name,
+                embedding_function=None,  # we always supply vectors; never trigger Chroma's default model
+                metadata={
+                    "hnsw:space": "cosine",
+                    "embedding_model": embedding_model,
+                    "embedding_dim": embedding_dim,
+                },
+            )
+        except (ChromaError, OSError, sqlite3.Error) as exc:
+            raise StorageError(
+                f"could not open the vector database at {persist_dir!s}: {exc}. Likely causes: another "
+                "server process is still using this folder (stop it with Ctrl+C), the folder is read-only, "
+                "or antivirus is blocking the database file. Fix: close other servers, or point "
+                "RAG_STORAGE_DIR at a different writable folder (e.g. C:\\rag-storage). The index can be "
+                "rebuilt by re-uploading your documents."
+            ) from exc
         stored = self._collection.metadata or {}
         if stored.get("embedding_model") != embedding_model or stored.get("embedding_dim") != embedding_dim:
             raise IndexMismatchError(
-                f"index at {persist_dir} was built with embedding model "
+                f"index at {persist_dir!s} was built with embedding model "
                 f"{stored.get('embedding_model')!r} (dim {stored.get('embedding_dim')}), but the configured "
                 f"model is {embedding_model!r} (dim {embedding_dim}). Vectors from different models are not "
                 "comparable. Re-ingest into a fresh storage directory (or delete this one)."
             )
         self.version = 0  # bumped on every write; lets retrievers invalidate cached matrices
+
+    def drop(self) -> None:
+        """Delete the collection (used to clean up throw-away in-memory benchmark stores)."""
+        self._client.delete_collection(self._collection.name)
 
     def count(self) -> int:
         return self._collection.count()

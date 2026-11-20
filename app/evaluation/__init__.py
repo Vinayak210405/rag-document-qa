@@ -1,1 +1,1 @@
-"""Evaluation datasets, metrics, and the benchmark runner (Milestone 2+)."""
+"""Evaluation: labelled dataset, ranking metrics, evaluator, benchmark runner, run comparison."""

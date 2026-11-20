@@ -151,3 +151,36 @@ def test_no_llm_call_is_made_when_the_index_is_empty(make_service) -> None:
     with pytest.raises(EmptyIndexError):
         make_service(llm=llm).answer("anything")
     assert llm.calls == []
+
+
+# ------------------------------------------------------------------ storage failures
+def test_a_storage_failure_becomes_an_actionable_message(monkeypatch, tmp_path) -> None:
+    import chromadb
+    from chromadb.errors import InternalError
+
+    from app.indexing import StorageError
+
+    def boom(*args, **kwargs):
+        raise InternalError("error returned from database: (code: 8) attempt to write a readonly database")
+
+    monkeypatch.setattr(chromadb, "PersistentClient", boom)
+    with pytest.raises(StorageError) as info:
+        ChromaVectorStore(tmp_path / "chroma", "documents", "hashing-1024", 1024)
+    message = str(info.value)
+    assert str(tmp_path / "chroma") in message and "RAG_STORAGE_DIR" in message and "readonly database" in message
+    assert isinstance(info.value.__cause__, InternalError)  # the original error is preserved, not hidden
+
+
+def test_in_memory_stores_with_different_collection_names_are_isolated() -> None:
+    import numpy as np
+
+    from app.chunking import Chunk
+
+    def store(name: str) -> ChromaVectorStore:
+        return ChromaVectorStore(None, name, "m", 2)
+
+    chunk = Chunk("c1", "d.txt", "d.txt", 0, "hello", None, None)
+    a, b = store("mem-a"), store("mem-b")
+    a.replace_document("d.txt", [chunk], np.array([[1.0, 0.0]], dtype=np.float32))
+    assert a.count() == 1 and b.count() == 0
+    assert store("mem-a").count() == 1  # documented: same name in the same process SHARES state

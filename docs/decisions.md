@@ -105,3 +105,62 @@ measured later (M5, M8), not assumed.
   and multi-column pages are not analysed. Scanned PDFs are rejected with a clear message (OCR hook only).
 - No authentication or per-document permissions yet (M9). The upload size cap and file-name sanitising are minimal.
 - `starlette.testclient` emits a deprecation warning when used with httpx; harmless today, may need `httpx2` later.
+
+## Milestone 2 decisions
+
+### D15. Relevance is defined by content, so every chunk can be judged
+A chunk's grade is the highest grade among gold quotes it fully contains (and only quotes from its own document).
+Because grading needs only the chunk text, we can grade **every chunk in the index**, so nDCG's ideal ranking is exact
+instead of assumed. A quote cut in half by a chunk boundary is contained by neither chunk; the `reachable` diagnostic
+reports that loss so a bad chunker cannot hide behind "retrieval failed".
+
+### D16. Metric definitions (`docs/` and every result file repeat them)
+Relevant = contains required (grade 2) evidence. Hit@k = any relevant chunk in the top k. Recall@k = share of required
+quotes covered by the top k (matters for multi-hop). RR = 1 / rank of the first relevant chunk; MRR is its mean.
+nDCG@k uses gains 2^grade - 1 (grade 2 is worth 3x grade 1). **MRR is computed over the retrieved depth, max(ks)**, so
+it is really MRR@max-k (found out when a test expectation disagreed with the code); results label it that way.
+Unanswerable questions have no gold evidence: they are excluded from these averages and reported separately.
+
+### D17. Each run builds a fresh in-memory index with a unique collection name
+Verified on chromadb 1.5.9: in-memory clients **share state within a process** when the collection name matches, so a
+second run could silently inherit the first run's chunks. A uuid collection name per run plus `drop()` prevents it. An
+in-memory store also avoids the Windows file-locking problems that temp-directory SQLite files cause.
+
+### D18. Deterministic results are separated from non-deterministic ones
+`config`, `dataset`, `index`, `metrics`, `questions` are deterministic; timestamps, git state, environment and all
+latencies are not and live in other keys. `results_sha256` covers only the deterministic part, so "same configuration +
+same dataset" is checkable by comparing one string. Numbers are rounded to 6 decimals first. Same machine: identical hash.
+Across machines it should match, but tiny floating-point differences could in principle change it; compare metrics too.
+The benchmark refuses to run if the dataset no longer matches the corpus (label rot).
+
+### D19. Every result carries controls and diagnostics, because averages can mislead
+- **Random-ranking control**: expected metrics of a uniformly random ranking (seeded Monte-Carlo, same evaluator code).
+  With a 12-chunk index, random already gets hit@5 of about 0.46, so a result means something only relative to it.
+- **Tie flags**: `tie_with_gold` (the first gold chunk has the same score as a non-gold chunk) and `no_signal` (top score
+  is 0). In both cases the rank is decided by the tie-break rule, not by the retriever.
+- **Outdated-above-gold rate** for questions with a superseded distractor (the conflicting-documents failure mode).
+- **Comparison tool** reports, next to every metric delta, how many questions got better / worse / stayed the same.
+
+### D20. Tie-break rule and its side effect
+Exact score ties resolve to the lower index; the index is ordered by (document id, chunk position). Since `v1` sorts
+before `v2`, a tie between the two leave-policy versions silently favours the **outdated** file. This is deterministic
+and documented, not hidden. A lexical embedder cannot tell "20 days" from "24 days", so such ties are real; fixing them
+(recency/status metadata, reranking) is Milestone 4-5 work, and the tie flags measure how often it matters.
+
+### Known dataset issues found while benchmarking (not yet fixed, so v0.1.0 stays valid)
+- Paraphrase questions q006 (names "AeroLink X200") and q007 (shares the word "second") overlap with their source in
+  distinctive keywords, so they are not pure tests of semantic matching. Suggest rewriting during label review.
+- 24 questions over 12 chunks: per-category numbers rest on 2-4 questions each. Treat them as indicative only.
+
+### D21. BM25 and RRF are our own code (Milestone 3)
+- **BM25**: Okapi with the Lucene idf `ln(1 + (N-n+0.5)/(n+0.5))`, k1=1.5, b=0.75. Unit-tested against a hand computation.
+  Tokeniser keeps identifiers whole *and* splits them (`ZX-4471` -> `zx-4471`, `zx`, `4471`). No stemming/stop words:
+  untested language-specific choices. The index is rebuilt from the same store snapshot as the dense retriever (keyed on
+  store version), so the two views cannot disagree about which chunks exist; fine at this scale, a persistent
+  incremental lexical index is Milestone 6.
+- **RRF**: `sum 1/(k+rank)`, k=60, rank-only so incomparable score scales fuse safely. Deterministic tie-break
+  (best rank, then first seen). BM25 chunks with score 0 are excluded from the lexical list so they cannot vote.
+- **Result**: on the 24-question set with the *stand-in hashing embedder*, hybrid vs dense: MRR 0.778 -> 0.796,
+  Recall@5 0.861 -> 0.917, Hit@1 unchanged, Recall@3 and nDCG@3 each got worse on one question. That is a 1-question
+  effect on a small, Claude-authored set; it is **not** evidence that hybrid wins with a real embedder. Re-run with
+  `--embedder sentence_transformers` (needs the model download) before drawing conclusions.
