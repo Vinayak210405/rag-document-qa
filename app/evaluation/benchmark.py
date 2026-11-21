@@ -35,7 +35,7 @@ from typing import Sequence
 
 import numpy as np
 
-from app.chunking import SentenceChunker
+from app.chunking import SemanticChunker, SentenceChunker
 from app.config import Settings
 from app.embeddings import Embedder, create_embedder
 from app.evaluation.dataset import (
@@ -68,6 +68,9 @@ class PipelineConfig:
     embedding_backend: str = "sentence_transformers"
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     embedding_query_prefix: str = ""
+    chunking: str = "sentence"  # sentence | semantic
+    semantic_percentile: float = 90.0
+    semantic_min_chars: int = 100
     chunk_max_chars: int = 500
     chunk_overlap_chars: int = 80
     ks: tuple[int, ...] = (1, 3, 5)
@@ -149,7 +152,12 @@ def run_benchmark(
             embedding_query_prefix=config.embedding_query_prefix,
         ))
 
-    chunker = SentenceChunker(config.chunk_max_chars, config.chunk_overlap_chars)
+    if config.chunking == "semantic":
+        chunker = SemanticChunker(embedder, config.chunk_max_chars, config.semantic_min_chars, config.semantic_percentile)
+    elif config.chunking == "sentence":
+        chunker = SentenceChunker(config.chunk_max_chars, config.chunk_overlap_chars)
+    else:
+        raise BenchmarkError(f"unknown chunking {config.chunking!r}; available: sentence, semantic")
     store = ChromaVectorStore(None, f"bench-{uuid.uuid4().hex}", embedder.model_name, embedder.dimension)
     try:
         start = time.perf_counter()
@@ -193,6 +201,8 @@ def run_benchmark(
     index_info = {
         "documents": len({c.doc_id for c in indexed}), "chunks": len(indexed),
         "mean_chunk_chars": round(sum(len(c.text) for c in indexed) / len(indexed), 1),
+        # embedding work done at ingest: one vector per chunk, plus one per sentence if the chunker embeds
+        "embedded_texts": len(indexed) + getattr(chunker, "units_embedded", 0),
     }
     deterministic = {"config": resolved_config, "dataset": dataset_info, "index": index_info,
                      "metrics": metrics, "questions": questions}
@@ -289,6 +299,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument("--reranker", default="cross-encoder/ms-marco-MiniLM-L-6-v2", help='model name, or "lexical" (offline stand-in)')
     p.add_argument("--embedder", choices=["hashing", "sentence_transformers"], default=defaults.embedding_backend)
     p.add_argument("--model", default=defaults.embedding_model)
+    p.add_argument("--chunking", choices=["sentence", "semantic"], default="sentence")
+    p.add_argument("--semantic-percentile", type=float, default=90.0)
     p.add_argument("--chunk-max", type=int, default=defaults.chunk_max_chars)
     p.add_argument("--chunk-overlap", type=int, default=defaults.chunk_overlap_chars)
     p.add_argument("--ks", default="1,3,5", help="comma-separated cut-offs, e.g. 1,3,5")
@@ -301,6 +313,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         label=args.label, retriever=args.retriever, candidates=args.candidates, rrf_k=args.rrf_k, reranker=args.reranker,
         embedding_backend=args.embedder, embedding_model=args.model,
         embedding_query_prefix=defaults.embedding_query_prefix if args.embedder == "sentence_transformers" else "",
+        chunking=args.chunking, semantic_percentile=args.semantic_percentile,
         chunk_max_chars=args.chunk_max, chunk_overlap_chars=args.chunk_overlap,
         ks=tuple(int(k) for k in args.ks.split(",")),
     )

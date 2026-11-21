@@ -11,7 +11,7 @@ import time
 from dataclasses import dataclass, field, replace
 from typing import Protocol, Sequence
 
-from app.chunking import Chunker, SentenceChunker
+from app.chunking import Chunker, SemanticChunker, SentenceChunker
 from app.config import Settings
 from app.embeddings import Embedder, create_embedder
 from app.generation import ABSTAIN_PHRASE, LLMClient, OpenAICompatibleClient, build_messages
@@ -298,6 +298,14 @@ class RagService:
         return result
 
 
+def make_chunker(settings: Settings, embedder: Embedder) -> Chunker:
+    if settings.chunking == "semantic":
+        return SemanticChunker(
+            embedder, settings.chunk_max_chars, settings.semantic_min_chars, settings.semantic_percentile
+        )
+    return SentenceChunker(settings.chunk_max_chars, settings.chunk_overlap_chars)
+
+
 def _build_retriever(settings: Settings, store: ChromaVectorStore, embedder: Embedder) -> Retriever:
     if settings.retriever == "dense":
         return DenseRetriever(store, embedder)
@@ -334,7 +342,7 @@ def build_service(settings: Settings) -> RagService:
         min_evidence_coverage=settings.min_evidence_coverage,
         strict_citations=settings.strict_citations,
         max_pages=settings.max_pdf_pages,
-        chunker=SentenceChunker(settings.chunk_max_chars, settings.chunk_overlap_chars),
+        chunker=make_chunker(settings, embedder),
         llm=llm,
         default_top_k=settings.default_top_k,
     )

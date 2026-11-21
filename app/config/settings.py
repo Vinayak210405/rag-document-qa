@@ -47,6 +47,9 @@ class Settings(BaseSettings):
 
     # --- Chunking / retrieval --------------------------------------------
     chunk_max_chars: int = Field(500, ge=100, le=4000)
+    chunking: Literal["sentence", "semantic"] = "sentence"
+    semantic_percentile: float = Field(90.0, gt=0, lt=100)
+    semantic_min_chars: int = Field(100, ge=0)
     chunk_overlap_chars: int = Field(80, ge=0)
     default_top_k: int = Field(4, ge=1, le=20)
     retriever: Literal["dense", "hybrid", "reranked"] = "dense"  # hybrid = dense + BM25 (RRF); reranked = hybrid + reranker

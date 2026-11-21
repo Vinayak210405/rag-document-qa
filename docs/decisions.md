@@ -210,3 +210,15 @@ and documented, not hidden. A lexical embedder cannot tell "20 days" from "24 da
 - **Audit**: reports stale/corrupt chunks (ID != sha256(doc, ordinal, text)), documents with mixed content hashes
   (interrupted update), duplicate positions, and identical text shared by different documents (informational).
 - Not implemented: keeping old versions queryable, soft deletes, or a persistent incremental BM25 index.
+
+### D25. Semantic chunking and the chunking ablation (Milestone 7)
+- `SemanticChunker` (same `Chunker` interface): embeds each sentence, cuts where adjacent-sentence cosine distance exceeds the
+  page's p-th percentile or a heading starts, merges fragments under `min_chars`, packs oversized groups. Costs one embedding per
+  sentence at ingest, counted as `embedded_texts` in benchmark output.
+- **Ablation D** (hybrid retrieval, hashing stand-in embedder, 24 questions, `docs/results/m7-*`): sentence chunking 12 chunks,
+  MRR 0.796, Hit@5 0.944, Recall@5 0.917; semantic (p=70 and p=90 gave identical splits on this tiny corpus) 31 chunks (mean 159
+  vs 424 chars), MRR 0.741, Hit@5 0.889, Recall@5 0.861. Embedded texts 119 vs 12 (~10x), ingest time ~2x. So on this setup
+  semantic chunking was **worse and costlier**. That does not generalise: the corpus is 7 short documents (a handful of
+  sentences each, so there is little topic structure to find), the embedder is lexical not semantic, and the labels are small and
+  Claude-authored. It does show why "semantic is better" must be measured. Re-run with `--embedder sentence_transformers`
+  on a larger corpus before drawing any conclusion.
