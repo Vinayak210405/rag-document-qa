@@ -45,6 +45,7 @@ from app.evaluation.evaluator import IndexedChunk, Retrieve, evaluate, random_ba
 from app.indexing import ChromaVectorStore
 from app.ingestion import SUPPORTED_TYPES, parse_document
 from app.retrieval.dense import DenseRetriever
+from app.retrieval.rerank import CrossEncoderReranker, LexicalOverlapReranker, RerankedRetriever
 from app.retrieval.hybrid import BM25Retriever, HybridRetriever
 
 SCHEMA_VERSION = 1
@@ -60,9 +61,10 @@ class PipelineConfig:
     """Everything that defines the pipeline under test. Logged verbatim with every result."""
 
     label: str
-    retriever: str = "dense"  # dense | bm25 | hybrid ("reranked" arrives in Milestone 4)
+    retriever: str = "dense"  # dense | bm25 | hybrid | reranked
     candidates: int = 20  # per-list candidate count for hybrid
     rrf_k: int = 60
+    reranker: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"  # or "lexical" (offline stand-in)
     embedding_backend: str = "sentence_transformers"
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     embedding_query_prefix: str = ""
@@ -85,7 +87,11 @@ def _build_retriever(config: PipelineConfig, store: ChromaVectorStore, embedder:
         return BM25Retriever(store).retrieve
     if config.retriever == "hybrid":
         return HybridRetriever(store, embedder, candidates=config.candidates, rrf_k=config.rrf_k).retrieve
-    raise BenchmarkError(f"unknown retriever {config.retriever!r}; available: dense, bm25, hybrid")
+    if config.retriever == "reranked":
+        base = HybridRetriever(store, embedder, candidates=config.candidates, rrf_k=config.rrf_k)
+        reranker = LexicalOverlapReranker() if config.reranker == "lexical" else CrossEncoderReranker(config.reranker)
+        return RerankedRetriever(base, reranker, candidates=config.candidates).retrieve
+    raise BenchmarkError(f"unknown retriever {config.retriever!r}; available: dense, bm25, hybrid, reranked")
 
 
 def _canonical(obj: object) -> str:
@@ -277,9 +283,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     defaults = Settings()
     p = argparse.ArgumentParser(description="Run the retrieval benchmark and save JSON + CSV results.")
     p.add_argument("--label", default="dense", help="short name for this run (used in the file name)")
-    p.add_argument("--retriever", choices=["dense", "bm25", "hybrid"], default="dense")
+    p.add_argument("--retriever", choices=["dense", "bm25", "hybrid", "reranked"], default="dense")
     p.add_argument("--candidates", type=int, default=20, help="per-list candidates fed to RRF (hybrid)")
     p.add_argument("--rrf-k", type=int, default=60)
+    p.add_argument("--reranker", default="cross-encoder/ms-marco-MiniLM-L-6-v2", help='model name, or "lexical" (offline stand-in)')
     p.add_argument("--embedder", choices=["hashing", "sentence_transformers"], default=defaults.embedding_backend)
     p.add_argument("--model", default=defaults.embedding_model)
     p.add_argument("--chunk-max", type=int, default=defaults.chunk_max_chars)
@@ -291,7 +298,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     config = PipelineConfig(
-        label=args.label, retriever=args.retriever, candidates=args.candidates, rrf_k=args.rrf_k,
+        label=args.label, retriever=args.retriever, candidates=args.candidates, rrf_k=args.rrf_k, reranker=args.reranker,
         embedding_backend=args.embedder, embedding_model=args.model,
         embedding_query_prefix=defaults.embedding_query_prefix if args.embedder == "sentence_transformers" else "",
         chunk_max_chars=args.chunk_max, chunk_overlap_chars=args.chunk_overlap,

@@ -20,6 +20,8 @@ from app.ingestion import EmptyDocumentError, parse_document
 from app.retrieval import InvalidQueryError, RetrievedChunk, normalize_query
 from app.retrieval.dense import DenseRetriever
 from app.retrieval.hybrid import HybridRetriever
+from app.retrieval.context import assemble_context
+from app.retrieval.rerank import CrossEncoderReranker, LexicalOverlapReranker, RerankedRetriever
 from app.retrieval.types import RetrievedChunk
 from app.utils.logging import log_event
 
@@ -118,7 +120,11 @@ class RagService:
         chunker: Chunker,
         llm: LLMClient,
         default_top_k: int = 4,
+        context_token_budget: int = 1500,
+        max_chunks_per_doc: int | None = None,
     ) -> None:
+        self.context_token_budget = context_token_budget
+        self.max_chunks_per_doc = max_chunks_per_doc
         self.embedder = embedder
         self.store = store
         self.retriever = retriever
@@ -182,6 +188,10 @@ class RagService:
     def answer(self, question: str, top_k: int | None = None) -> AnswerResult:
         total = time.perf_counter()
         query, passages, retrieval_ms = self._retrieve(question, top_k)
+        context = assemble_context(
+            passages, token_budget=self.context_token_budget, max_per_doc=self.max_chunks_per_doc
+        )
+        passages = context.passages  # source numbers in the prompt follow the assembled context
         messages = build_messages(query, passages)
         gen_start = time.perf_counter()
         response = self.llm.complete(messages)  # raises LLMError; never replaced by a made-up answer
@@ -209,6 +219,19 @@ class RagService:
         return result
 
 
+def _build_retriever(settings: Settings, store: ChromaVectorStore, embedder: Embedder) -> Retriever:
+    if settings.retriever == "dense":
+        return DenseRetriever(store, embedder)
+    hybrid = HybridRetriever(store, embedder, candidates=settings.hybrid_candidates, rrf_k=settings.rrf_k)
+    if settings.retriever == "hybrid":
+        return hybrid
+    reranker = (
+        LexicalOverlapReranker() if settings.reranker_model == "lexical"
+        else CrossEncoderReranker(settings.reranker_model)
+    )
+    return RerankedRetriever(hybrid, reranker, candidates=settings.hybrid_candidates)
+
+
 def build_service(settings: Settings) -> RagService:
     """Construct the production service from settings (may download an embedding model on first use)."""
     embedder = create_embedder(settings)
@@ -226,10 +249,9 @@ def build_service(settings: Settings) -> RagService:
     return RagService(
         embedder=embedder,
         store=store,
-        retriever=(
-            HybridRetriever(store, embedder, candidates=settings.hybrid_candidates, rrf_k=settings.rrf_k)
-            if settings.retriever == "hybrid" else DenseRetriever(store, embedder)
-        ),
+        retriever=_build_retriever(settings, store, embedder),
+        context_token_budget=settings.context_token_budget,
+        max_chunks_per_doc=settings.max_chunks_per_doc,
         chunker=SentenceChunker(settings.chunk_max_chars, settings.chunk_overlap_chars),
         llm=llm,
         default_top_k=settings.default_top_k,

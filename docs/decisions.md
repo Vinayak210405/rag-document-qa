@@ -164,3 +164,14 @@ and documented, not hidden. A lexical embedder cannot tell "20 days" from "24 da
   Recall@5 0.861 -> 0.917, Hit@1 unchanged, Recall@3 and nDCG@3 each got worse on one question. That is a 1-question
   effect on a small, Claude-authored set; it is **not** evidence that hybrid wins with a real embedder. Re-run with
   `--embedder sentence_transformers` (needs the model download) before drawing conclusions.
+
+### D22. Reranking and context assembly (Milestone 4)
+- `RerankedRetriever(base, reranker, candidates)` re-scores the first-stage pool; a failing/unavailable reranker raises
+  `RerankerError` (no silent fallback to the first-stage order). `CrossEncoderReranker` wraps a pretrained
+  sentence-transformers CrossEncoder (needs a download; **not run in this sandbox**, so no cross-encoder numbers exist yet).
+- `LexicalOverlapReranker` is an offline stand-in used only to test orchestration. Measured result with the hashing
+  embedder: it *hurt* the top ranks (MRR 0.796 -> 0.769, Hit@1 0.667 -> 0.611, one question worse, none better at rank 1).
+  This is a stand-in result, not evidence about cross-encoders; re-run with `--reranker cross-encoder/ms-marco-MiniLM-L-6-v2`.
+- Context assembly: near-duplicate removal (token Jaccard >= 0.85), per-document cap, token budget. Token counts are
+  chars/4 estimates, not the LLM tokenizer. The best passage is always kept.
+- Latency/cost of reranking on real models is unmeasured here.

@@ -49,7 +49,10 @@ class Settings(BaseSettings):
     chunk_max_chars: int = Field(500, ge=100, le=4000)
     chunk_overlap_chars: int = Field(80, ge=0)
     default_top_k: int = Field(4, ge=1, le=20)
-    retriever: Literal["dense", "hybrid"] = "dense"  # hybrid = dense + BM25 fused with RRF
+    retriever: Literal["dense", "hybrid", "reranked"] = "dense"  # hybrid = dense + BM25 (RRF); reranked = hybrid + reranker
+    reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"  # "lexical" = offline stand-in
+    context_token_budget: int = Field(1500, ge=50)
+    max_chunks_per_doc: int | None = Field(None, ge=1)
     hybrid_candidates: int = Field(20, ge=1, le=200)
     rrf_k: int = Field(60, ge=0)
     chroma_collection: str = Field("documents", min_length=3)  # Chroma requires >= 3 chars
