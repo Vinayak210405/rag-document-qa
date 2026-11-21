@@ -14,11 +14,12 @@ SOURCE = {"source_number": 1, "rank": 1, "score": 0.8123, "chunk_id": "abc123def
           "text": "Error code ERR-5043 indicates that encryption has not been enabled.", "cited": True}
 ANSWER = {"question": "q", "answer": "Encryption is off [1].", "abstained": False, "valid_citations": [1],
           "invalid_citations": [], "sources": [SOURCE], "timings": {"retrieval_ms": 4.0, "generation_ms": 900.0, "total_ms": 905.0},
-          "usage": {"prompt_tokens": 120, "completion_tokens": 9}, "llm_model": "m", "embedding_model": "e"}
+          "usage": {"prompt_tokens": 120, "completion_tokens": 9}, "llm_model": "m", "embedding_model": "e", "status": "answered"}
 
 
 @pytest.fixture
-def api_client(monkeypatch):
+def api_client(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)  # no saved benchmark results here, so the Benchmarks tab shows only an info box
     monkeypatch.syspath_prepend(str(FRONTEND))  # same import path `streamlit run frontend/app.py` uses
     import api_client as module
 
@@ -90,3 +91,31 @@ def test_unreachable_api_shows_how_to_start_it(monkeypatch) -> None:
     monkeypatch.setattr(module.ApiClient, "list_documents", lambda self: (_ for _ in ()).throw(module.ApiError("down")))
     at = AppTest.from_file(APP, default_timeout=15).run()
     assert not at.exception and any("uvicorn" in e.value for e in at.sidebar.error)
+
+
+def test_status_conflict_and_injection_banners(api_client, monkeypatch) -> None:
+    flagged = {**ANSWER, "version_conflicts": ["HR-POL-004: v1.txt v1.0 (superseded), v2.txt v2.0 (current)"],
+               "injection_flags": {SOURCE["chunk_id"]: ["override-instructions"]}, "uncited_sentences": ["An unsupported claim here."],
+               "status": "unverified"}
+    monkeypatch.setattr(api_client.ApiClient, "ask", lambda self, q, k=None: flagged)
+    at = ask(AppTest.from_file(APP, default_timeout=15).run(), "q")
+    assert any("Several versions" in w.value for w in at.warning)
+    assert any("prompt injection" in e.value for e in at.error)
+    assert any("no citation" in w.value for w in at.warning)
+
+    gate = {**ANSWER, "answer": "I cannot answer this from the provided documents.", "abstained": True, "valid_citations": [],
+            "sources": [], "status": "abstained_no_evidence", "timings": {"retrieval_ms": 3.0, "generation_ms": None, "total_ms": 4.0},
+            "usage": {"prompt_tokens": None, "completion_tokens": None}}
+    monkeypatch.setattr(api_client.ApiClient, "ask", lambda self, q, k=None: gate)
+    at = ask(AppTest.from_file(APP, default_timeout=15).run(), "q")
+    assert not at.exception and any("no LLM call" in w.value for w in at.warning)
+
+
+def test_benchmarks_tab_lists_saved_runs_with_stand_in_warning(api_client, monkeypatch) -> None:
+    root = Path(__file__).resolve().parents[2]
+    monkeypatch.chdir(root)  # real docs/results with the committed reference runs
+    at = AppTest.from_file(APP, default_timeout=30).run()
+    assert not at.exception
+    assert any("stand-in" in w.value for w in at.warning)
+    assert any("human-verified" in w.value for w in at.warning)
+    assert len(at.selectbox) >= 3  # metric + baseline + candidate

@@ -64,7 +64,7 @@ def _dehyphenate(text: str) -> str:
 
 
 def parse_pdf(
-    content: bytes, ocr: OcrEngine | None = None
+    content: bytes, ocr: OcrEngine | None = None, max_pages: int | None = None
 ) -> tuple[list[Block], int, list[str]]:
     """Extract text page by page, keeping page numbers; report pages that yield nothing."""
     try:
@@ -73,6 +73,8 @@ def parse_pdf(
     except Exception as exc:  # pypdf raises several unrelated types for bad input
         raise ExtractionError(f"could not open PDF file: {exc}") from exc
 
+    if max_pages is not None and page_count > max_pages:
+        raise ExtractionError(f"PDF has {page_count} pages, above the configured limit of {max_pages}")
     blocks: list[Block] = []
     warnings: list[str] = []
     empty_pages: list[int] = []

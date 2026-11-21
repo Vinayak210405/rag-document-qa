@@ -32,8 +32,10 @@ def test_upload_list_retrieve_and_ask_round_trip(api, corpus_files) -> None:
     client = api(FakeLLM("It means encryption is off [1]."))
     r = upload(client, "it_security_handbook.txt", corpus_files["it_security_handbook.txt"])
     assert r.status_code == 200 and r.json()["chunks"] > 0 and r.json()["replaced_existing"] is False
-    assert client.get("/documents").json() == [
-        {"doc_id": "it_security_handbook.txt", "name": "it_security_handbook.txt", "chunks": r.json()["chunks"]}]
+    listed = client.get("/documents").json()
+    assert [(d["doc_id"], d["chunks"], d["ingest_version"]) for d in listed] == [
+        ("it_security_handbook.txt", r.json()["chunks"], 1)]
+    assert listed[0]["content_hash"] == r.json()["content_hash"]
     assert client.get("/health").json()["documents"] == 1
 
     hits = client.post("/retrieve", json={"question": "ERR-5043", "top_k": 2}).json()
@@ -53,7 +55,10 @@ def test_pdf_upload_reports_pages(api) -> None:
 def test_reuploading_reports_replacement(api, corpus_files) -> None:
     client = api()
     upload(client, "product_faq.txt", corpus_files["product_faq.txt"])
-    assert upload(client, "product_faq.txt", corpus_files["product_faq.txt"]).json()["replaced_existing"] is True
+    again = upload(client, "product_faq.txt", corpus_files["product_faq.txt"]).json()
+    assert again["status"] == "unchanged" and again["replaced_existing"] is False  # identical bytes: skipped
+    changed = upload(client, "product_faq.txt", corpus_files["product_faq.txt"] + b"\nExtra note for testing.").json()
+    assert changed["status"] == "updated" and changed["replaced_existing"] is True and changed["ingest_version"] == 2
 
 
 def test_asking_before_ingesting_is_a_409_with_a_clear_message(api) -> None:
@@ -98,3 +103,13 @@ def test_llm_outage_is_a_502_not_a_fabricated_answer(api, corpus_files) -> None:
     r = client.post("/ask", json={"question": "What is the warranty?"})
     assert r.status_code == 502 and r.json()["detail"] == "endpoint down" and "answer" not in r.json()
     assert client.post("/retrieve", json={"question": "warranty"}).status_code == 200  # retrieval still works
+
+
+def test_api_delete_and_audit(api, corpus_files):
+    client = api()
+    upload(client, "product_faq.txt", corpus_files["product_faq.txt"])
+    assert client.get("/audit").json()["clean"] is True
+    r = client.delete("/documents/product_faq.txt")
+    assert r.status_code == 200 and r.json()["chunks_removed"] > 0
+    assert client.delete("/documents/product_faq.txt").status_code == 404
+    assert client.get("/documents").json() == []

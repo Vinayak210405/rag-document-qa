@@ -1,0 +1,37 @@
+qid   category                 answerable  coverage  missing terms
+q001  direct_factual           True           0.00   minimum, password, length
+q002  direct_factual           True           1.00   
+q003  direct_factual           True           0.75   long
+q004  direct_factual           True           0.60   many, last
+q005  paraphrase               True           0.00   often, change, login, password
+q006  paraphrase               True           0.43   long, run, needs, recharging
+q007  paraphrase               True           0.44   text, message, login, step, remotely
+q008  exact_identifier         True           0.83   mean
+q009  exact_identifier         True           0.80   used
+q010  exact_identifier         True           1.00   
+q011  exact_identifier         True           0.89   weight
+q012  multi_document           True           0.73   many, take, freely
+q013  multi_document           True           0.62   done, join, happens
+q014  multi_hop                True           0.67   largest, head
+q015  multi_hop                True           0.80   15
+q016  conflicting_outdated     True           0.89   many
+q017  conflicting_outdated     True           0.62   many, caregiver, take
+q018  conflicting_outdated     True           0.75   many, next
+q019  unanswerable             False          0.57   remotely, another, country
+q020  unanswerable             False          0.40   salary, s, ceo
+q021  unanswerable             False          0.17   country, won, fifa, world, cup
+q022  insufficient_evidence    False          0.86   many
+q023  insufficient_evidence    False          0.67   limit, head
+q024  insufficient_evidence    False          0.50   much, cost
+
+threshold  true_refusals  missed_refusals  false_refusals
+      0.3       1/6              5             2/18
+      0.4       1/6              5             2/18
+      0.5       2/6              4             4/18
+      0.6       4/6              2             4/18
+      0.7       5/6              1             8/18
+      0.8       5/6              1            11/18
+      0.9       6/6              0            16/18
+      1.0       6/6              0            16/18
+
+NOTE: 24 Claude-authored questions; any threshold chosen here is tuned on the same data it is measured on.

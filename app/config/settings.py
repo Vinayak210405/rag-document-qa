@@ -47,9 +47,20 @@ class Settings(BaseSettings):
 
     # --- Chunking / retrieval --------------------------------------------
     chunk_max_chars: int = Field(500, ge=100, le=4000)
+    chunking: Literal["sentence", "semantic"] = "sentence"
+    semantic_percentile: float = Field(90.0, gt=0, lt=100)
+    semantic_min_chars: int = Field(100, ge=0)
     chunk_overlap_chars: int = Field(80, ge=0)
     default_top_k: int = Field(4, ge=1, le=20)
-    retriever: Literal["dense", "hybrid"] = "dense"  # hybrid = dense + BM25 fused with RRF
+    retriever: Literal["dense", "hybrid", "reranked"] = "dense"  # hybrid = dense + BM25 (RRF); reranked = hybrid + reranker
+    reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"  # "lexical" = offline stand-in
+    context_token_budget: int = Field(1500, ge=50)
+    max_chunks_per_doc: int | None = Field(None, ge=1)
+    min_evidence_coverage: float = Field(0.0, ge=0.0, le=1.0)  # 0 = gate off (see decision D23)
+    max_pdf_pages: int | None = Field(500, ge=1)
+    drop_flagged_passages: bool = False  # drop (instead of just flagging) passages that look like prompt injection
+    auth_tokens: SecretStr | None = None  # JSON, see app/security.py; unset = open API (localhost only)
+    strict_citations: bool = False  # withhold answers that fail citation validation
     hybrid_candidates: int = Field(20, ge=1, le=200)
     rrf_k: int = Field(60, ge=0)
     chroma_collection: str = Field("documents", min_length=3)  # Chroma requires >= 3 chars

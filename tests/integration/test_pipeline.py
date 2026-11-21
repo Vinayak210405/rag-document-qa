@@ -31,7 +31,7 @@ def test_reingesting_the_same_file_does_not_duplicate_chunks(loaded, corpus_file
     svc, reports = loaded
     before = svc.store.count()
     again = svc.ingest("product_faq.txt", corpus_files["product_faq.txt"])
-    assert again.replaced_existing is True
+    assert again.status == "unchanged" and again.replaced_existing is False
     assert svc.store.count() == before and again.chunks == reports["product_faq.txt"].chunks
 
 

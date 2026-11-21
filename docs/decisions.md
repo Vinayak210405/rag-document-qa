@@ -164,3 +164,99 @@ and documented, not hidden. A lexical embedder cannot tell "20 days" from "24 da
   Recall@5 0.861 -> 0.917, Hit@1 unchanged, Recall@3 and nDCG@3 each got worse on one question. That is a 1-question
   effect on a small, Claude-authored set; it is **not** evidence that hybrid wins with a real embedder. Re-run with
   `--embedder sentence_transformers` (needs the model download) before drawing conclusions.
+
+### D22. Reranking and context assembly (Milestone 4)
+- `RerankedRetriever(base, reranker, candidates)` re-scores the first-stage pool; a failing/unavailable reranker raises
+  `RerankerError` (no silent fallback to the first-stage order). `CrossEncoderReranker` wraps a pretrained
+  sentence-transformers CrossEncoder (needs a download; **not run in this sandbox**, so no cross-encoder numbers exist yet).
+- `LexicalOverlapReranker` is an offline stand-in used only to test orchestration. Measured result with the hashing
+  embedder: it *hurt* the top ranks (MRR 0.796 -> 0.769, Hit@1 0.667 -> 0.611, one question worse, none better at rank 1).
+  This is a stand-in result, not evidence about cross-encoders; re-run with `--reranker cross-encoder/ms-marco-MiniLM-L-6-v2`.
+- Context assembly: near-duplicate removal (token Jaccard >= 0.85), per-document cap, token budget. Token counts are
+  chars/4 estimates, not the LLM tokenizer. The best passage is always kept.
+- Latency/cost of reranking on real models is unmeasured here.
+
+### D23. Citation validation, evidence gate, version conflicts (Milestone 5)
+- **Answer status** (`answered | abstained | abstained_no_evidence | unverified | withheld`) is computed from deterministic
+  checks: citation numbers must exist in the supplied sources; every sentence of 4+ words needs a `[n]`. `unverified`
+  answers are still shown but flagged; `RAG_STRICT_CITATIONS=true` withholds them. These checks are STRUCTURAL: they
+  do not show that a cited source supports the claim (that needs an entailment/LLM judge; Ragas faithfulness, M8).
+- **Evidence gate** (`RAG_MIN_EVIDENCE_COVERAGE`, default 0 = off): lexical coverage of question terms by the retrieved
+  passages; below threshold the service refuses without calling the LLM (fixed abstain phrase, `llm_model="(not called)"`).
+  Measured on the 24 questions (`docs/results/m5-evidence-gate-hashing.txt`): no threshold separates the classes.
+  Threshold 0.6 refuses 4/6 must-refuse questions but also wrongly refuses 4/18 answerable ones; 0.9 catches 6/6 but
+  wrongly refuses 16/18. The cheap lexical gate is therefore left OFF by default. A paraphrase-robust signal (reranker
+  score / dense similarity with a real embedder) is the next thing to try and is unmeasured here. Thresholds picked on
+  this set would be tuned on their own test data.
+- **Version conflicts**: header metadata (`Document ID`, `Version`, `Effective date`, `Status`) is extracted at ingest,
+  stored on every chunk, and shown to the model; if retrieved passages span several files of one `Document ID`, the
+  prompt gets an explicit version warning and the API lists the conflict. Whether the LLM then picks the current version
+  is NOT verified without a real model.
+- **Bug caught by the corpus test**: text normalisation merges header lines into one paragraph, so line-based header
+  parsing silently found one field; the extractor now matches `Key:` markers, with a regression test on the real files.
+
+### D24. Document lifecycle (Milestone 6)
+- **Identity**: `doc_id` = sanitised file name (stable across uploads); `content_hash` = sha256 of the bytes;
+  `ingest_version` = 1 on first ingest, +1 whenever the content or the index settings change. Stored on every chunk.
+- **Incremental ingestion**: identical bytes AND identical settings (`chunker|embedding model` signature, ACL groups) are
+  skipped: the file is parsed and hashed but nothing is re-chunked or re-embedded (`status: unchanged`). A settings change
+  (e.g. a different chunker) forces a rebuild of identical bytes.
+- **Update safety**: new chunks are upserted first (IDs are content-derived, so unchanged chunks are overwritten in place),
+  then chunks no longer in the document are deleted. An interruption can leave stale extras (found by `GET /audit`) but
+  never missing content. This is ordering, not a transaction: Chroma has none.
+- **Lexical/dense sync**: both views are built from the same store snapshot, keyed on a write counter, so updates and
+  deletes reach BM25 and dense retrieval together (tested). Limitation: the counter is per process; a second process
+  writing to the same on-disk store would not invalidate this process's cache. Single-writer deployment assumed.
+- **Audit**: reports stale/corrupt chunks (ID != sha256(doc, ordinal, text)), documents with mixed content hashes
+  (interrupted update), duplicate positions, and identical text shared by different documents (informational).
+- Not implemented: keeping old versions queryable, soft deletes, or a persistent incremental BM25 index.
+
+### D25. Semantic chunking and the chunking ablation (Milestone 7)
+- `SemanticChunker` (same `Chunker` interface): embeds each sentence, cuts where adjacent-sentence cosine distance exceeds the
+  page's p-th percentile or a heading starts, merges fragments under `min_chars`, packs oversized groups. Costs one embedding per
+  sentence at ingest, counted as `embedded_texts` in benchmark output.
+- **Ablation D** (hybrid retrieval, hashing stand-in embedder, 24 questions, `docs/results/m7-*`): sentence chunking 12 chunks,
+  MRR 0.796, Hit@5 0.944, Recall@5 0.917; semantic (p=70 and p=90 gave identical splits on this tiny corpus) 31 chunks (mean 159
+  vs 424 chars), MRR 0.741, Hit@5 0.889, Recall@5 0.861. Embedded texts 119 vs 12 (~10x), ingest time ~2x. So on this setup
+  semantic chunking was **worse and costlier**. That does not generalise: the corpus is 7 short documents (a handful of
+  sentences each, so there is little topic structure to find), the embedder is lexical not semantic, and the labels are small and
+  Claude-authored. It does show why "semantic is better" must be measured. Re-run with `--embedder sentence_transformers`
+  on a larger corpus before drawing any conclusion.
+
+### D26. Ragas evaluation (Milestone 8)
+- `python -m app.evaluation.ragas_runner` answers all dataset questions through the real pipeline (answer LLM, `RAG_LLM_*`),
+  then scores with Ragas 0.4.3 (`faithfulness`, `answer_relevancy`, `context_precision`, `context_recall`) using a configurable
+  judge (`RAG_JUDGE_MODEL/BASE_URL/API_KEY`, any OpenAI-compatible endpoint; defaults to the answer LLM). Needs
+  `uv sync --extra eval`; pinned `langchain-community<0.4.2` because 0.4.2 removed a module ragas imports.
+- Must-refuse questions are scored deterministically (abstained or not), not by Ragas; faithfulness/answer-relevancy skip
+  refusals (nothing to judge) and false abstentions are counted separately. Per-metric judge failures are recorded per
+  question and counted; if every call fails the run aborts rather than writing an empty-looking result.
+- Deterministic retrieval metrics are untouched and independent of Ragas (`app.evaluation.benchmark`).
+- **Verified here**: the real Ragas metric objects construct and the orchestration works with fake scorers (tested).
+  **NOT verified here**: a live end-to-end run. The sandbox has no LLM or judge endpoint, so **no Ragas scores exist yet**.
+  Judge token usage and cost are not tracked. LLM-judge scores are not ground truth and vary with the judge model.
+
+### D27. Security and demo readiness (Milestone 9)
+- **Access control before ranking**, not after: post-filtering would let restricted chunks consume top-k slots (changing results
+  for others) and risks leaking them via scores or counts. A user in no group sees only public chunks; unrestricted (`groups=None`)
+  applies when auth is disabled or for admins. `groups` is part of the index signature, so changing a document's groups re-indexes it.
+- **Injection**: heuristics flag rather than silently delete by default (a policy document may legitimately say "ignore the old
+  version"); flagged passages are marked to the model and the UI. Measured only on hand-written positive/negative examples
+  (tests), not on a real attack corpus, so the detection rate is unknown.
+- **Benchmark dashboard**: reads saved result JSON, labels stand-in runs and unverified labels prominently, never recomputes metrics.
+- **Addendum to D21/D25**: on the stand-in setup BM25 alone (MRR 0.819) beat the hybrid (0.796), which beat the lexical stand-in
+  reranker (0.769); semantic chunking (0.741) regressed. All four are stand-in results on 18 questions.
+
+### D28. LlamaIndex comparison (Milestone 10)
+- `LlamaIndexRetriever` (optional extra) reads **our** Chroma collection through an adapter around our embedder, so both systems
+  see identical vectors and query embeddings. The core never imports LlamaIndex.
+- **Result** (`docs/results/m10-llamaindex-hashing-*`, hashing embedder, 12 chunks): retrieval metrics are identical to our dense
+  retriever on all 18 answerable questions (0 better / 0 worse), and the test asserts the same cosine score at every rank for all
+  24 questions. Exact chunk-ID order differs on some questions only where scores tie (the hashing embedder produces many ties; tie
+  order is implementation-defined: ours = lower index, Chroma HNSW = arbitrary). So our NumPy retriever is not a lossy
+  reimplementation on this data.
+- **Cost**: mean retrieval latency 0.19 ms (ours, in-memory brute force, cached matrix) vs 2.4 ms (LlamaIndex through Chroma
+  query). That is a 12-chunk index in one process: it says nothing about large indexes where HNSW wins.
+- LlamaIndex scores are `exp(-distance)`, ours are cosine; only ranks are comparable. The comparison retriever does not support
+  access control and is not used by the service.
+- Not done: LlamaIndex ingestion/chunking/query-engine pipelines (would require a different chunker and prompt, confounding the comparison).

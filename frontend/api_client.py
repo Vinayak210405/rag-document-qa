@@ -12,9 +12,13 @@ class ApiError(RuntimeError):
 
 
 class ApiClient:
-    def __init__(self, base_url: str, timeout: float = 300.0, transport: httpx.BaseTransport | None = None) -> None:
+    def __init__(
+        self, base_url: str, timeout: float = 300.0, transport: httpx.BaseTransport | None = None, token: str | None = None,
+    ) -> None:
         self._base = base_url.rstrip("/")
-        self._client = httpx.Client(timeout=timeout, transport=transport)
+        self._client = httpx.Client(
+            timeout=timeout, transport=transport, headers={"Authorization": f"Bearer {token}"} if token else None
+        )
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         try:
@@ -39,8 +43,14 @@ class ApiClient:
     def list_documents(self) -> list[dict[str, Any]]:
         return self._request("GET", "/documents")
 
-    def upload(self, filename: str, content: bytes) -> dict[str, Any]:
-        return self._request("POST", "/documents", files={"file": (filename, content)})
+    def upload(self, filename: str, content: bytes, groups: str | None = None) -> dict[str, Any]:
+        return self._request("POST", "/documents", files={"file": (filename, content)}, data={"groups": groups or ""})
+
+    def delete_document(self, doc_id: str) -> dict[str, Any]:
+        return self._request("DELETE", f"/documents/{doc_id}")
+
+    def audit(self) -> dict[str, Any]:
+        return self._request("GET", "/audit")
 
     def retrieve(self, question: str, top_k: int | None = None) -> dict[str, Any]:
         return self._request("POST", "/retrieve", json={"question": question, "top_k": top_k})

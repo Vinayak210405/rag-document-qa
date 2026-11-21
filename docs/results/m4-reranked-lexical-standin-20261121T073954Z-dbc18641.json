@@ -1,0 +1,1713 @@
+{
+  "schema_version": 1,
+  "run": {
+    "run_id": "m4-reranked-lexical-standin-20261121T073954Z-dbc18641",
+    "label": "m4-reranked-lexical-standin",
+    "created_at": "2026-11-21T07:39:54+00:00",
+    "dataset_path": "data/eval/dataset_v0.1.0.json",
+    "git": {
+      "commit": "4f6cff17820a03588657b2a98629a54869c27d65",
+      "uncommitted_changes": true
+    },
+    "environment": {
+      "python": "3.13.18",
+      "platform": "Linux-6.18.44-fc-v726-x86_64-with-glibc2.39",
+      "numpy": "2.5.4",
+      "chromadb": "1.5.9"
+    }
+  },
+  "config": {
+    "label": "m4-reranked-lexical-standin",
+    "retriever": "reranked",
+    "candidates": 20,
+    "rrf_k": 60,
+    "reranker": "lexical",
+    "embedding_backend": "hashing",
+    "embedding_model": "hashing-1024",
+    "embedding_query_prefix": "",
+    "chunk_max_chars": 500,
+    "chunk_overlap_chars": 80,
+    "ks": [
+      1,
+      3,
+      5
+    ],
+    "embedding_dim": 1024,
+    "chunker": "sentence(max=500,overlap=80)"
+  },
+  "dataset": {
+    "name": "velmora-qa",
+    "version": "0.1.0",
+    "corpus_sha256": "94f4980884a155b5b0bf8ad22a93a924ffd382fb0494db843fe2cd900623487c",
+    "n_questions": 24,
+    "n_answerable": 18,
+    "n_must_refuse": 6,
+    "labels_human_verified": 0,
+    "label_sources": {
+      "claude_authored": 24
+    }
+  },
+  "index": {
+    "documents": 7,
+    "chunks": 12,
+    "mean_chunk_chars": 424.3
+  },
+  "metrics": {
+    "definitions": {
+      "mrr": "mean reciprocal rank over the retrieved top-5 (MRR@5); a first relevant chunk below rank 5 counts as 0",
+      "hit@k": "1 if any of the top-k chunks contains required (grade 2) evidence",
+      "recall@k": "fraction of required evidence quotes fully contained in the top-k chunks",
+      "ndcg@k": "graded nDCG; every chunk in the index is judged by content, so the ideal ranking is exact"
+    },
+    "overall": {
+      "n": 18,
+      "mrr": 0.768518,
+      "hit@1": 0.611111,
+      "recall@1": 0.555556,
+      "ndcg@1": 0.62963,
+      "hit@3": 0.944444,
+      "recall@3": 0.888889,
+      "ndcg@3": 0.785405,
+      "hit@5": 0.944444,
+      "recall@5": 0.916667,
+      "ndcg@5": 0.800075
+    },
+    "by_category": {
+      "conflicting_outdated": {
+        "n": 3,
+        "mrr": 0.5,
+        "hit@1": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 0.640287,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 0.640287
+      },
+      "direct_factual": {
+        "n": 4,
+        "mrr": 0.833333,
+        "hit@1": 0.75,
+        "recall@1": 0.75,
+        "ndcg@1": 0.75,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 0.875,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 0.875
+      },
+      "exact_identifier": {
+        "n": 4,
+        "mrr": 1.0,
+        "hit@1": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "multi_document": {
+        "n": 2,
+        "mrr": 0.75,
+        "hit@1": 0.5,
+        "recall@1": 0.25,
+        "ndcg@1": 0.666667,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 0.858214,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 0.858214
+      },
+      "multi_hop": {
+        "n": 2,
+        "mrr": 0.75,
+        "hit@1": 0.5,
+        "recall@1": 0.25,
+        "ndcg@1": 0.5,
+        "hit@3": 1.0,
+        "recall@3": 0.5,
+        "ndcg@3": 0.5,
+        "hit@5": 1.0,
+        "recall@5": 0.75,
+        "ndcg@5": 0.632034
+      },
+      "paraphrase": {
+        "n": 3,
+        "mrr": 0.666667,
+        "hit@1": 0.666667,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "hit@3": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "hit@5": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.666667
+      }
+    },
+    "reachability": {
+      "answerable_questions": 18,
+      "mean_required_quotes_reachable": 1.0
+    },
+    "distractors": {
+      "questions_with_distractors": 7,
+      "distractor_above_gold_rate": 0.428571
+    },
+    "top1_score": {
+      "answerable": {
+        "n": 18,
+        "mean": 0.574001,
+        "min": 0.2,
+        "max": 0.888889
+      },
+      "must_refuse": {
+        "n": 6,
+        "mean": 0.473605,
+        "min": 0.25,
+        "max": 0.666667
+      }
+    },
+    "ties": {
+      "answerable_questions": 18,
+      "gold_tied_with_non_gold": 5,
+      "no_signal": 0
+    }
+  },
+  "questions": [
+    {
+      "id": "q001",
+      "category": "direct_factual",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.333333,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.333333,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "49202318f2a6cc0c",
+          "doc_id": "it_security_handbook.txt",
+          "score": 0.333333,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "082325c3d14d5c13",
+          "doc_id": "org_directory.txt",
+          "score": 0.333333,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "794882245b801f37",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.333333,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 0.333333,
+        "hit@1": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 0.5,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 0.5
+      },
+      "top1_score": 0.333333,
+      "reachable": 1.0,
+      "distractor_above_gold": null,
+      "tie_with_gold": true,
+      "no_signal": false
+    },
+    {
+      "id": "q002",
+      "category": "direct_factual",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.888889,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "377e0279dfd68f8e",
+          "doc_id": "expense_policy.txt",
+          "score": 0.333333,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.333333,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "191b64efb70fbdb4",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.333333,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "49202318f2a6cc0c",
+          "doc_id": "it_security_handbook.txt",
+          "score": 0.333333,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 1.0,
+        "hit@1": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "top1_score": 0.888889,
+      "reachable": 1.0,
+      "distractor_above_gold": null,
+      "tie_with_gold": false,
+      "no_signal": false
+    },
+    {
+      "id": "q003",
+      "category": "direct_factual",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "da9a8f66e7b58953",
+          "doc_id": "product_faq.txt",
+          "score": 0.75,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.375,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.375,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "191b64efb70fbdb4",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.375,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "90b3bc82b78ca152",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.375,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 1.0,
+        "hit@1": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "top1_score": 0.75,
+      "reachable": 1.0,
+      "distractor_above_gold": null,
+      "tie_with_gold": false,
+      "no_signal": false
+    },
+    {
+      "id": "q004",
+      "category": "direct_factual",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "90b3bc82b78ca152",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.5,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "794882245b801f37",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.375,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "49a417f5a708d4cf",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "162cf4c31ffd62dc",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 1.0,
+        "hit@1": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "top1_score": 0.5,
+      "reachable": 1.0,
+      "distractor_above_gold": null,
+      "tie_with_gold": false,
+      "no_signal": false
+    },
+    {
+      "id": "q005",
+      "category": "paraphrase",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "7a0c7c534a384236",
+          "doc_id": "it_security_handbook.txt",
+          "score": 0.2,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.1,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "377e0279dfd68f8e",
+          "doc_id": "expense_policy.txt",
+          "score": 0.1,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.1,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "191b64efb70fbdb4",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.1,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 0.0,
+        "hit@1": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "hit@3": 0.0,
+        "recall@3": 0.0,
+        "ndcg@3": 0.0,
+        "hit@5": 0.0,
+        "recall@5": 0.0,
+        "ndcg@5": 0.0
+      },
+      "top1_score": 0.2,
+      "reachable": 1.0,
+      "distractor_above_gold": null,
+      "tie_with_gold": false,
+      "no_signal": false
+    },
+    {
+      "id": "q006",
+      "category": "paraphrase",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "da9a8f66e7b58953",
+          "doc_id": "product_faq.txt",
+          "score": 0.363636,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "90b3bc82b78ca152",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.272727,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.181818,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "191b64efb70fbdb4",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.181818,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "7a0c7c534a384236",
+          "doc_id": "it_security_handbook.txt",
+          "score": 0.181818,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 1.0,
+        "hit@1": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "top1_score": 0.363636,
+      "reachable": 1.0,
+      "distractor_above_gold": null,
+      "tie_with_gold": false,
+      "no_signal": false
+    },
+    {
+      "id": "q007",
+      "category": "paraphrase",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "49202318f2a6cc0c",
+          "doc_id": "it_security_handbook.txt",
+          "score": 0.357143,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.214286,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "191b64efb70fbdb4",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.214286,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "794882245b801f37",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.142857,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.142857,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 1.0,
+        "hit@1": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "top1_score": 0.357143,
+      "reachable": 1.0,
+      "distractor_above_gold": false,
+      "tie_with_gold": false,
+      "no_signal": false
+    },
+    {
+      "id": "q008",
+      "category": "exact_identifier",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "7a0c7c534a384236",
+          "doc_id": "it_security_handbook.txt",
+          "score": 0.625,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "da9a8f66e7b58953",
+          "doc_id": "product_faq.txt",
+          "score": 0.125,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "794882245b801f37",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.125,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.0,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "90b3bc82b78ca152",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.0,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 1.0,
+        "hit@1": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "top1_score": 0.625,
+      "reachable": 1.0,
+      "distractor_above_gold": null,
+      "tie_with_gold": false,
+      "no_signal": false
+    },
+    {
+      "id": "q009",
+      "category": "exact_identifier",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.75,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "49202318f2a6cc0c",
+          "doc_id": "it_security_handbook.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "794882245b801f37",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "191b64efb70fbdb4",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 1.0,
+        "hit@1": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "top1_score": 0.75,
+      "reachable": 1.0,
+      "distractor_above_gold": null,
+      "tie_with_gold": false,
+      "no_signal": false
+    },
+    {
+      "id": "q010",
+      "category": "exact_identifier",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "7a0c7c534a384236",
+          "doc_id": "it_security_handbook.txt",
+          "score": 0.625,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "794882245b801f37",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "49202318f2a6cc0c",
+          "doc_id": "it_security_handbook.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 1.0,
+        "hit@1": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "top1_score": 0.625,
+      "reachable": 1.0,
+      "distractor_above_gold": false,
+      "tie_with_gold": false,
+      "no_signal": false
+    },
+    {
+      "id": "q011",
+      "category": "exact_identifier",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "da9a8f66e7b58953",
+          "doc_id": "product_faq.txt",
+          "score": 0.785714,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.214286,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.214286,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "7a0c7c534a384236",
+          "doc_id": "it_security_handbook.txt",
+          "score": 0.214286,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "191b64efb70fbdb4",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.214286,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 1.0,
+        "hit@1": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "top1_score": 0.785714,
+      "reachable": 1.0,
+      "distractor_above_gold": null,
+      "tie_with_gold": false,
+      "no_signal": false
+    },
+    {
+      "id": "q012",
+      "category": "multi_document",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "90b3bc82b78ca152",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.526316,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "49a417f5a708d4cf",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.368421,
+          "grade": 0,
+          "distractor": true
+        },
+        {
+          "rank": 3,
+          "chunk_id": "162cf4c31ffd62dc",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.368421,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "794882245b801f37",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.315789,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.263158,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 1.0,
+        "hit@1": 1.0,
+        "recall@1": 0.5,
+        "ndcg@1": 1.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 0.919721,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 0.919721
+      },
+      "top1_score": 0.526316,
+      "reachable": 1.0,
+      "distractor_above_gold": false,
+      "tie_with_gold": false,
+      "no_signal": false
+    },
+    {
+      "id": "q013",
+      "category": "multi_document",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "90b3bc82b78ca152",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.571429,
+          "grade": 1,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "7a0c7c534a384236",
+          "doc_id": "it_security_handbook.txt",
+          "score": 0.47619,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.380952,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "191b64efb70fbdb4",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.333333,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.333333,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 0.5,
+        "hit@1": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.333333,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 0.796708,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 0.796708
+      },
+      "top1_score": 0.571429,
+      "reachable": 1.0,
+      "distractor_above_gold": null,
+      "tie_with_gold": false,
+      "no_signal": false
+    },
+    {
+      "id": "q014",
+      "category": "multi_hop",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "082325c3d14d5c13",
+          "doc_id": "org_directory.txt",
+          "score": 0.416667,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.416667,
+          "grade": 0,
+          "distractor": true
+        },
+        {
+          "rank": 3,
+          "chunk_id": "794882245b801f37",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "377e0279dfd68f8e",
+          "doc_id": "expense_policy.txt",
+          "score": 0.25,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "7a0c7c534a384236",
+          "doc_id": "it_security_handbook.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 1.0,
+        "hit@1": 1.0,
+        "recall@1": 0.5,
+        "ndcg@1": 1.0,
+        "hit@3": 1.0,
+        "recall@3": 0.5,
+        "ndcg@3": 0.613147,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 0.877215
+      },
+      "top1_score": 0.416667,
+      "reachable": 1.0,
+      "distractor_above_gold": false,
+      "tie_with_gold": true,
+      "no_signal": false
+    },
+    {
+      "id": "q015",
+      "category": "multi_hop",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.75,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "377e0279dfd68f8e",
+          "doc_id": "expense_policy.txt",
+          "score": 0.5,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "191b64efb70fbdb4",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.375,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.375,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "49202318f2a6cc0c",
+          "doc_id": "it_security_handbook.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 0.5,
+        "hit@1": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "hit@3": 1.0,
+        "recall@3": 0.5,
+        "ndcg@3": 0.386853,
+        "hit@5": 1.0,
+        "recall@5": 0.5,
+        "ndcg@5": 0.386853
+      },
+      "top1_score": 0.75,
+      "reachable": 1.0,
+      "distractor_above_gold": null,
+      "tie_with_gold": false,
+      "no_signal": false
+    },
+    {
+      "id": "q016",
+      "category": "conflicting_outdated",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "49a417f5a708d4cf",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.75,
+          "grade": 0,
+          "distractor": true
+        },
+        {
+          "rank": 2,
+          "chunk_id": "162cf4c31ffd62dc",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.75,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "90b3bc82b78ca152",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.416667,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "191b64efb70fbdb4",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.25,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 0.5,
+        "hit@1": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 0.63093,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 0.63093
+      },
+      "top1_score": 0.75,
+      "reachable": 1.0,
+      "distractor_above_gold": true,
+      "tie_with_gold": true,
+      "no_signal": false
+    },
+    {
+      "id": "q017",
+      "category": "conflicting_outdated",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.583333,
+          "grade": 0,
+          "distractor": true
+        },
+        {
+          "rank": 2,
+          "chunk_id": "191b64efb70fbdb4",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.583333,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "49a417f5a708d4cf",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.333333,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "162cf4c31ffd62dc",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.333333,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "90b3bc82b78ca152",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.166667,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 0.5,
+        "hit@1": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 0.63093,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 0.63093
+      },
+      "top1_score": 0.583333,
+      "reachable": 1.0,
+      "distractor_above_gold": true,
+      "tie_with_gold": true,
+      "no_signal": false
+    },
+    {
+      "id": "q018",
+      "category": "conflicting_outdated",
+      "answerable": true,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "49a417f5a708d4cf",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.555556,
+          "grade": 0,
+          "distractor": true
+        },
+        {
+          "rank": 2,
+          "chunk_id": "162cf4c31ffd62dc",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.555556,
+          "grade": 2,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "191b64efb70fbdb4",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.444444,
+          "grade": 1,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.444444,
+          "grade": 0,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.277778,
+          "grade": 0,
+          "distractor": false
+        }
+      ],
+      "metrics": {
+        "rr": 0.5,
+        "hit@1": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "hit@3": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 0.659002,
+        "hit@5": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 0.659002
+      },
+      "top1_score": 0.555556,
+      "reachable": 1.0,
+      "distractor_above_gold": true,
+      "tie_with_gold": true,
+      "no_signal": false
+    },
+    {
+      "id": "q019",
+      "category": "unanswerable",
+      "answerable": false,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.363636,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.363636,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "191b64efb70fbdb4",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.363636,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "90b3bc82b78ca152",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.363636,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "da9a8f66e7b58953",
+          "doc_id": "product_faq.txt",
+          "score": 0.363636,
+          "grade": null,
+          "distractor": false
+        }
+      ],
+      "metrics": null,
+      "top1_score": 0.363636,
+      "reachable": null,
+      "distractor_above_gold": null,
+      "tie_with_gold": null,
+      "no_signal": false
+    },
+    {
+      "id": "q020",
+      "category": "unanswerable",
+      "answerable": false,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "49a417f5a708d4cf",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.444444,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "162cf4c31ffd62dc",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.444444,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "082325c3d14d5c13",
+          "doc_id": "org_directory.txt",
+          "score": 0.444444,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "90b3bc82b78ca152",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.444444,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.444444,
+          "grade": null,
+          "distractor": false
+        }
+      ],
+      "metrics": null,
+      "top1_score": 0.444444,
+      "reachable": null,
+      "distractor_above_gold": null,
+      "tie_with_gold": null,
+      "no_signal": false
+    },
+    {
+      "id": "q021",
+      "category": "unanswerable",
+      "answerable": false,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "49a417f5a708d4cf",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.25,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.125,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "377e0279dfd68f8e",
+          "doc_id": "expense_policy.txt",
+          "score": 0.125,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.125,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "082325c3d14d5c13",
+          "doc_id": "org_directory.txt",
+          "score": 0.125,
+          "grade": null,
+          "distractor": false
+        }
+      ],
+      "metrics": null,
+      "top1_score": 0.25,
+      "reachable": null,
+      "distractor_above_gold": null,
+      "tie_with_gold": null,
+      "no_signal": false
+    },
+    {
+      "id": "q022",
+      "category": "insufficient_evidence",
+      "answerable": false,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.666667,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 2,
+          "chunk_id": "191b64efb70fbdb4",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.666667,
+          "grade": null,
+          "distractor": true
+        },
+        {
+          "rank": 3,
+          "chunk_id": "794882245b801f37",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.416667,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "90b3bc82b78ca152",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.333333,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "49a417f5a708d4cf",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.25,
+          "grade": null,
+          "distractor": false
+        }
+      ],
+      "metrics": null,
+      "top1_score": 0.666667,
+      "reachable": null,
+      "distractor_above_gold": null,
+      "tie_with_gold": null,
+      "no_signal": false
+    },
+    {
+      "id": "q023",
+      "category": "insufficient_evidence",
+      "answerable": false,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "4b7fbd295c2294f5",
+          "doc_id": "expense_policy.txt",
+          "score": 0.545455,
+          "grade": null,
+          "distractor": true
+        },
+        {
+          "rank": 2,
+          "chunk_id": "082325c3d14d5c13",
+          "doc_id": "org_directory.txt",
+          "score": 0.454545,
+          "grade": null,
+          "distractor": true
+        },
+        {
+          "rank": 3,
+          "chunk_id": "377e0279dfd68f8e",
+          "doc_id": "expense_policy.txt",
+          "score": 0.363636,
+          "grade": null,
+          "distractor": true
+        },
+        {
+          "rank": 4,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.363636,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "191b64efb70fbdb4",
+          "doc_id": "hr_leave_policy_v2.txt",
+          "score": 0.363636,
+          "grade": null,
+          "distractor": false
+        }
+      ],
+      "metrics": null,
+      "top1_score": 0.545455,
+      "reachable": null,
+      "distractor_above_gold": null,
+      "tie_with_gold": null,
+      "no_signal": false
+    },
+    {
+      "id": "q024",
+      "category": "insufficient_evidence",
+      "answerable": false,
+      "hits": [
+        {
+          "rank": 1,
+          "chunk_id": "da9a8f66e7b58953",
+          "doc_id": "product_faq.txt",
+          "score": 0.571429,
+          "grade": null,
+          "distractor": true
+        },
+        {
+          "rank": 2,
+          "chunk_id": "794882245b801f37",
+          "doc_id": "onboarding_guide.txt",
+          "score": 0.285714,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 3,
+          "chunk_id": "082325c3d14d5c13",
+          "doc_id": "org_directory.txt",
+          "score": 0.142857,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 4,
+          "chunk_id": "0248578e375e2a47",
+          "doc_id": "hr_leave_policy_v1.txt",
+          "score": 0.142857,
+          "grade": null,
+          "distractor": false
+        },
+        {
+          "rank": 5,
+          "chunk_id": "377e0279dfd68f8e",
+          "doc_id": "expense_policy.txt",
+          "score": 0.142857,
+          "grade": null,
+          "distractor": false
+        }
+      ],
+      "metrics": null,
+      "top1_score": 0.571429,
+      "reachable": null,
+      "distractor_above_gold": null,
+      "tie_with_gold": null,
+      "no_signal": false
+    }
+  ],
+  "baselines": {
+    "random": {
+      "description": "expected metrics of a uniformly random ranking of the index (seeded Monte-Carlo control)",
+      "trials": 200,
+      "seed": 0,
+      "overall": {
+        "n": 18,
+        "mrr": 0.21938,
+        "hit@1": 0.102778,
+        "recall@1": 0.086944,
+        "ndcg@1": 0.105741,
+        "hit@3": 0.285,
+        "recall@3": 0.251806,
+        "ndcg@3": 0.188714,
+        "hit@5": 0.461944,
+        "recall@5": 0.418333,
+        "ndcg@5": 0.260464
+      }
+    }
+  },
+  "latency": {
+    "indexing_seconds": 0.044,
+    "retrieval_ms": {
+      "mean": 1.137,
+      "p50": 0.97,
+      "p95": 1.147,
+      "max": 4.749,
+      "note": "includes query embedding; p95 over a few dozen questions is only indicative"
+    },
+    "per_question_ms": {
+      "q001": 4.749,
+      "q002": 0.994,
+      "q003": 0.96,
+      "q004": 0.939,
+      "q005": 0.939,
+      "q006": 0.951,
+      "q007": 1.015,
+      "q008": 0.911,
+      "q009": 0.945,
+      "q010": 0.995,
+      "q011": 0.989,
+      "q012": 1.05,
+      "q013": 1.154,
+      "q014": 0.967,
+      "q015": 0.947,
+      "q016": 1.021,
+      "q017": 0.909,
+      "q018": 0.987,
+      "q019": 0.996,
+      "q020": 0.925,
+      "q021": 0.898,
+      "q022": 0.956,
+      "q023": 1.105,
+      "q024": 0.974
+    },
+    "tokens_and_cost": null
+  },
+  "results_sha256": "dbc18641455a2c7ad842d7baf0e50ba30ebef0f5aaa4ca1701a1f9f3b29b573f"
+}

@@ -20,7 +20,7 @@ import numpy as np
 from chromadb.config import Settings as ChromaSettings
 from chromadb.errors import ChromaError
 
-from app.chunking.base import Chunk
+from app.chunking.base import Chunk, make_chunk_id
 from app.utils.logging import log_event
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,37 @@ class DocumentInfo:
     doc_id: str
     name: str
     chunks: int
+    content_hash: str | None = None
+    ingest_version: int | None = None  # 1 on first ingest, +1 every time the content changes
+    groups: str = ""  # access-control groups ("" = public)
+
+
+@dataclass(frozen=True)
+class DocumentState:
+    """What the index currently holds for one document (used to skip unchanged re-uploads)."""
+
+    doc_id: str
+    content_hash: str | None
+    index_signature: str | None  # chunker + embedding model the stored chunks were built with
+    ingest_version: int
+    chunk_ids: tuple[str, ...]
+    groups: str = ""  # access-control groups the chunks were stored with (comma-separated; "" = unrestricted)
+
+
+@dataclass(frozen=True)
+class AuditReport:
+    """Consistency findings. An empty report means: no stale, mixed or duplicate content was found."""
+
+    documents: int
+    chunks: int
+    stale_chunks: tuple[str, ...]  # chunk_id does not match sha256(doc_id, ordinal, text): corrupt or hand-edited
+    mixed_versions: tuple[str, ...]  # docs whose chunks carry more than one content hash (interrupted update)
+    duplicate_ordinals: tuple[str, ...]  # docs with two chunks at the same position
+    duplicate_texts: tuple[tuple[str, ...], ...]  # groups of chunk_ids (different docs) with identical text
+
+    @property
+    def clean(self) -> bool:
+        return not (self.stale_chunks or self.mixed_versions or self.duplicate_ordinals)
 
 
 class ChromaVectorStore:
@@ -100,6 +131,11 @@ class ChromaVectorStore:
             )
         self.version = 0  # bumped on every write; lets retrievers invalidate cached matrices
 
+    @property
+    def collection(self):
+        """The underlying Chroma collection (for read-only integrations such as the LlamaIndex comparison)."""
+        return self._collection
+
     def drop(self) -> None:
         """Delete the collection (used to clean up throw-away in-memory benchmark stores)."""
         self._client.delete_collection(self._collection.name)
@@ -108,17 +144,18 @@ class ChromaVectorStore:
         return self._collection.count()
 
     def replace_document(self, doc_id: str, chunks: Sequence[Chunk], embeddings: np.ndarray) -> bool:
-        """Store a document's chunks, first removing any older chunks of the same document.
+        """Store a document's chunks, replacing any older version. Returns True if an older version existed.
 
-        Returns True if an older version existed. Not atomic (delete then add); the full document
-        lifecycle (versioning, atomicity, hash-based skipping) arrives in Milestone 6.
+        Order matters for crash safety: new chunks are written FIRST (upsert, content-derived IDs so unchanged
+        chunks are simply overwritten in place), and only then are the old chunks that are no longer part of the
+        document deleted. An interruption can therefore leave stale extra chunks (found by ``audit``) but never
+        a document with missing content. Chroma has no multi-operation transaction, so this is ordering, not
+        atomicity.
         """
         if len(chunks) != len(embeddings):
             raise ValueError("chunks and embeddings must have the same length")
         existing = self._collection.get(where={"doc_id": doc_id}, include=[])
-        replaced = len(existing["ids"]) > 0
-        if replaced:
-            self._collection.delete(where={"doc_id": doc_id})
+        old_ids = set(existing["ids"])
         for start in range(0, len(chunks), _BATCH):
             batch = chunks[start : start + _BATCH]
             self._collection.upsert(
@@ -127,9 +164,62 @@ class ChromaVectorStore:
                 documents=[c.text for c in batch],
                 metadatas=[self._metadata(c) for c in batch],
             )
+        stale = sorted(old_ids - {c.chunk_id for c in chunks})
+        for start in range(0, len(stale), _BATCH):
+            self._collection.delete(ids=stale[start : start + _BATCH])
         self.version += 1
-        log_event(logger, "index_write", doc_id=doc_id, chunks=len(chunks), replaced=replaced)
-        return replaced
+        log_event(logger, "index_write", doc_id=doc_id, chunks=len(chunks), replaced=bool(old_ids), removed=len(stale))
+        return bool(old_ids)
+
+    def delete_document(self, doc_id: str) -> int:
+        """Remove every chunk of a document; returns how many were deleted (0 if it was not indexed)."""
+        existing = self._collection.get(where={"doc_id": doc_id}, include=[])
+        ids = list(existing["ids"])
+        for start in range(0, len(ids), _BATCH):
+            self._collection.delete(ids=ids[start : start + _BATCH])
+        if ids:
+            self.version += 1
+        log_event(logger, "index_delete", doc_id=doc_id, chunks=len(ids))
+        return len(ids)
+
+    def document_state(self, doc_id: str) -> DocumentState | None:
+        data = self._collection.get(where={"doc_id": doc_id}, include=["metadatas"])
+        if not data["ids"]:
+            return None
+        metas = data["metadatas"]
+        hashes = {m.get("content_hash") for m in metas}
+        sigs = {m.get("index_signature") for m in metas}
+        return DocumentState(
+            doc_id=doc_id,
+            content_hash=hashes.pop() if len(hashes) == 1 else None,  # None = mixed: treat as changed
+            index_signature=sigs.pop() if len(sigs) == 1 else None,
+            ingest_version=max(int(m.get("ingest_version", 1)) for m in metas),
+            chunk_ids=tuple(sorted(data["ids"])),
+            groups=str(metas[0].get("groups", "")),
+        )
+
+    def audit(self) -> AuditReport:
+        data = self._fetch_all(["documents", "metadatas"])
+        stale: list[str] = []
+        positions: dict[tuple[str, int], int] = {}
+        hashes: dict[str, set[str | None]] = {}
+        by_text: dict[str, list[tuple[str, str]]] = {}
+        for cid, text, meta in zip(data["ids"], data["documents"], data["metadatas"]):
+            doc_id, ordinal = str(meta["doc_id"]), int(meta["ordinal"])
+            if make_chunk_id(doc_id, ordinal, text) != cid:
+                stale.append(cid)
+            positions[(doc_id, ordinal)] = positions.get((doc_id, ordinal), 0) + 1
+            hashes.setdefault(doc_id, set()).add(meta.get("content_hash"))
+            by_text.setdefault(text, []).append((doc_id, cid))
+        return AuditReport(
+            documents=len(hashes), chunks=len(data["ids"]), stale_chunks=tuple(sorted(stale)),
+            mixed_versions=tuple(sorted(d for d, h in hashes.items() if len(h) > 1)),
+            duplicate_ordinals=tuple(sorted({d for (d, _), n in positions.items() if n > 1})),
+            duplicate_texts=tuple(
+                tuple(sorted(c for _, c in group)) for group in by_text.values()
+                if len({d for d, _ in group}) > 1
+            ),
+        )
 
     @staticmethod
     def _metadata(chunk: Chunk) -> dict[str, Any]:
@@ -138,6 +228,8 @@ class ChromaVectorStore:
             meta["page"] = chunk.page
         if chunk.heading:
             meta["heading"] = chunk.heading
+        for key, value in chunk.metadata.items():  # document-level fields; core keys can never be overridden
+            meta.setdefault(key, value)
         return meta
 
     def _fetch_all(self, include: list[str]) -> dict[str, list[Any]]:
@@ -172,8 +264,12 @@ class ChromaVectorStore:
 
     def list_documents(self) -> list[DocumentInfo]:
         data = self._fetch_all(["metadatas"])
-        counts: dict[str, tuple[str, int]] = {}
+        counts: dict[str, list] = {}
         for meta in data["metadatas"]:
-            name, n = counts.get(meta["doc_id"], (meta["doc_name"], 0))
-            counts[meta["doc_id"]] = (name, n + 1)
-        return [DocumentInfo(doc_id=k, name=v[0], chunks=v[1]) for k, v in sorted(counts.items())]
+            entry = counts.setdefault(meta["doc_id"], [meta["doc_name"], 0, meta.get("content_hash"), 1, str(meta.get("groups", ""))])
+            entry[1] += 1
+            entry[3] = max(entry[3], int(meta.get("ingest_version", 1)))
+        return [
+            DocumentInfo(doc_id=k, name=v[0], chunks=v[1], content_hash=v[2], ingest_version=v[3], groups=v[4])
+            for k, v in sorted(counts.items())
+        ]
