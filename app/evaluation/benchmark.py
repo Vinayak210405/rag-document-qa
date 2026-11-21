@@ -61,7 +61,7 @@ class PipelineConfig:
     """Everything that defines the pipeline under test. Logged verbatim with every result."""
 
     label: str
-    retriever: str = "dense"  # dense | bm25 | hybrid | reranked
+    retriever: str = "dense"  # dense | bm25 | hybrid | reranked | llamaindex (comparison only)
     candidates: int = 20  # per-list candidate count for hybrid
     rrf_k: int = 60
     reranker: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"  # or "lexical" (offline stand-in)
@@ -90,11 +90,14 @@ def _build_retriever(config: PipelineConfig, store: ChromaVectorStore, embedder:
         return BM25Retriever(store).retrieve
     if config.retriever == "hybrid":
         return HybridRetriever(store, embedder, candidates=config.candidates, rrf_k=config.rrf_k).retrieve
+    if config.retriever == "llamaindex":
+        from app.integrations.llamaindex_retriever import LlamaIndexRetriever
+        return LlamaIndexRetriever(store, embedder).retrieve
     if config.retriever == "reranked":
         base = HybridRetriever(store, embedder, candidates=config.candidates, rrf_k=config.rrf_k)
         reranker = LexicalOverlapReranker() if config.reranker == "lexical" else CrossEncoderReranker(config.reranker)
         return RerankedRetriever(base, reranker, candidates=config.candidates).retrieve
-    raise BenchmarkError(f"unknown retriever {config.retriever!r}; available: dense, bm25, hybrid, reranked")
+    raise BenchmarkError(f"unknown retriever {config.retriever!r}; available: dense, bm25, hybrid, reranked, llamaindex")
 
 
 def _canonical(obj: object) -> str:
@@ -293,7 +296,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     defaults = Settings()
     p = argparse.ArgumentParser(description="Run the retrieval benchmark and save JSON + CSV results.")
     p.add_argument("--label", default="dense", help="short name for this run (used in the file name)")
-    p.add_argument("--retriever", choices=["dense", "bm25", "hybrid", "reranked"], default="dense")
+    p.add_argument("--retriever", choices=["dense", "bm25", "hybrid", "reranked", "llamaindex"], default="dense")
     p.add_argument("--candidates", type=int, default=20, help="per-list candidates fed to RRF (hybrid)")
     p.add_argument("--rrf-k", type=int, default=60)
     p.add_argument("--reranker", default="cross-encoder/ms-marco-MiniLM-L-6-v2", help='model name, or "lexical" (offline stand-in)')

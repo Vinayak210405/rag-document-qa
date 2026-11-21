@@ -26,7 +26,7 @@ architecture: [docs/architecture.md](docs/architecture.md), threat model: [docs/
 | 7 | Semantic chunker + chunking ablation | Done, tested offline |
 | 8 | Ragas runner (configurable judge) | Done with fake scorers; **no live run, no Ragas scores** |
 | 9 | File validation, injection safeguards, access control, safe errors, benchmark dashboard, docs | Done, tested offline |
-| 10 | LlamaIndex comparison over the same Chroma index | In progress (D28) |
+| 10 | LlamaIndex comparison over the same Chroma index | Done: retrieval over our Chroma index matches ours (D28) |
 
 Tests: run `uv run pytest`. Everything runs offline in ~15 s; two opt-in tests (`-m requires_model`, `-m requires_api`) need a model
 download / a running LLM.
@@ -119,6 +119,9 @@ whole index; every run records a random-ranking control, tie/no-signal flags, ou
 | B. dense + BM25 + RRF | 0.796 | 0.667 | 0.944 | 0.917 | 0.810 | 12 |
 | C. hybrid + lexical STAND-IN reranker | 0.769 | 0.611 | 0.944 | 0.917 | 0.800 | 12 |
 | D. hybrid, semantic chunking | 0.741 | 0.611 | 0.889 | 0.861 | 0.756 | 31 |
+
+LlamaIndex reading the same Chroma collection (`--retriever llamaindex`, `docs/results/m10-*`) matched our dense retriever on all 18
+questions (same scores at every rank; ties may order differently), at 2.4 ms vs 0.19 ms mean latency on this tiny index (D28).
 
 What this does and does not show:
 - On this setup **BM25 alone beat the hybrid**, and the lexical stand-in reranker and semantic chunking both **regressed** versus

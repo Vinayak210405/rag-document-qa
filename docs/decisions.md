@@ -246,3 +246,17 @@ and documented, not hidden. A lexical embedder cannot tell "20 days" from "24 da
 - **Benchmark dashboard**: reads saved result JSON, labels stand-in runs and unverified labels prominently, never recomputes metrics.
 - **Addendum to D21/D25**: on the stand-in setup BM25 alone (MRR 0.819) beat the hybrid (0.796), which beat the lexical stand-in
   reranker (0.769); semantic chunking (0.741) regressed. All four are stand-in results on 18 questions.
+
+### D28. LlamaIndex comparison (Milestone 10)
+- `LlamaIndexRetriever` (optional extra) reads **our** Chroma collection through an adapter around our embedder, so both systems
+  see identical vectors and query embeddings. The core never imports LlamaIndex.
+- **Result** (`docs/results/m10-llamaindex-hashing-*`, hashing embedder, 12 chunks): retrieval metrics are identical to our dense
+  retriever on all 18 answerable questions (0 better / 0 worse), and the test asserts the same cosine score at every rank for all
+  24 questions. Exact chunk-ID order differs on some questions only where scores tie (the hashing embedder produces many ties; tie
+  order is implementation-defined: ours = lower index, Chroma HNSW = arbitrary). So our NumPy retriever is not a lossy
+  reimplementation on this data.
+- **Cost**: mean retrieval latency 0.19 ms (ours, in-memory brute force, cached matrix) vs 2.4 ms (LlamaIndex through Chroma
+  query). That is a 12-chunk index in one process: it says nothing about large indexes where HNSW wins.
+- LlamaIndex scores are `exp(-distance)`, ours are cosine; only ranks are comparable. The comparison retriever does not support
+  access control and is not used by the service.
+- Not done: LlamaIndex ingestion/chunking/query-engine pipelines (would require a different chunker and prompt, confounding the comparison).

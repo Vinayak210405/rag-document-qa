@@ -131,6 +131,11 @@ class ChromaVectorStore:
             )
         self.version = 0  # bumped on every write; lets retrievers invalidate cached matrices
 
+    @property
+    def collection(self):
+        """The underlying Chroma collection (for read-only integrations such as the LlamaIndex comparison)."""
+        return self._collection
+
     def drop(self) -> None:
         """Delete the collection (used to clean up throw-away in-memory benchmark stores)."""
         self._client.delete_collection(self._collection.name)
