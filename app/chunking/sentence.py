@@ -89,6 +89,7 @@ class SentenceChunker:
                         text=text,
                         page=page,
                         heading=packed[min(lead, len(packed) - 1)].heading,  # first NEW unit
+                        metadata=dict(doc.metadata),
                     )
                 )
         return chunks

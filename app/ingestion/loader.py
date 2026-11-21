@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+from app.ingestion.metadata import extract_document_metadata
 from app.ingestion.models import (
     EmptyDocumentError,
     OcrEngine,
@@ -62,4 +63,5 @@ def parse_document(
         blocks=tuple(blocks),
         page_count=page_count,
         warnings=tuple(warnings),
+        metadata=extract_document_metadata([b.text for b in blocks]),
     )

@@ -11,7 +11,7 @@ from app.indexing.chroma_store import ChromaVectorStore, IndexSnapshot
 from app.retrieval.bm25 import BM25Index
 from app.retrieval.fusion import reciprocal_rank_fusion
 from app.retrieval.similarity import cosine_similarity, top_k
-from app.retrieval.types import RetrievedChunk
+from app.retrieval.types import RetrievedChunk, build_retrieved
 
 
 class _SnapshotRetriever:
@@ -28,15 +28,7 @@ class _SnapshotRetriever:
             self._version = self._store.version
         return self._snapshot, self._bm25
 
-    @staticmethod
-    def _build(snapshot: IndexSnapshot, rank: int, index: int, score: float) -> RetrievedChunk:
-        meta = snapshot.metadatas[index]
-        return RetrievedChunk(
-            rank=rank, score=score, chunk_id=snapshot.ids[index], doc_id=str(meta["doc_id"]),
-            doc_name=str(meta["doc_name"]), ordinal=int(meta["ordinal"]),
-            page=int(meta["page"]) if "page" in meta else None,
-            heading=str(meta["heading"]) if "heading" in meta else None, text=snapshot.texts[index],
-        )
+    _build = staticmethod(build_retrieved)
 
 
 class BM25Retriever(_SnapshotRetriever):

@@ -53,6 +53,11 @@ class AnswerOut(BaseModel):
     usage: UsageOut
     llm_model: str
     embedding_model: str
+    status: str = "answered"
+    evidence_coverage: float | None = None
+    uncited_sentences: list[str] = []
+    version_conflicts: list[str] = []
+    context_dropped: dict[str, str] = {}
 
 
 class IngestOut(BaseModel):

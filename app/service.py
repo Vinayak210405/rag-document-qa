@@ -8,18 +8,21 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass, field
 from typing import Protocol
-from dataclasses import dataclass
 
 from app.chunking import Chunker, SentenceChunker
 from app.config import Settings
 from app.embeddings import Embedder, create_embedder
-from app.generation import ABSTAIN_PHRASE, LLMClient, OpenAICompatibleClient, build_messages, check_citations
+from app.generation import ABSTAIN_PHRASE, LLMClient, OpenAICompatibleClient, build_messages
+from app.generation.citations import validate_answer
 from app.indexing import ChromaVectorStore, DocumentInfo
 from app.ingestion import EmptyDocumentError, parse_document
-from app.retrieval import InvalidQueryError, RetrievedChunk, normalize_query
+from app.retrieval import InvalidQueryError, normalize_query
 from app.retrieval.dense import DenseRetriever
 from app.retrieval.hybrid import HybridRetriever
+from app.generation.conflicts import conflict_note, detect_conflicts
+from app.generation.evidence import assess_evidence
 from app.retrieval.context import assemble_context
 from app.retrieval.rerank import CrossEncoderReranker, LexicalOverlapReranker, RerankedRetriever
 from app.retrieval.types import RetrievedChunk
@@ -100,6 +103,11 @@ class AnswerResult:
     usage: Usage
     llm_model: str
     embedding_model: str
+    status: str = "answered"  # answered | abstained | abstained_no_evidence | unverified | withheld
+    evidence_coverage: float | None = None
+    uncited_sentences: list[str] = field(default_factory=list)
+    version_conflicts: list[str] = field(default_factory=list)  # human-readable, e.g. "HR-POL-004: v1 (superseded), v2 (current)"
+    context_dropped: dict[str, str] = field(default_factory=dict)  # chunk_id -> reason
 
 
 class Retriever(Protocol):
@@ -122,7 +130,11 @@ class RagService:
         default_top_k: int = 4,
         context_token_budget: int = 1500,
         max_chunks_per_doc: int | None = None,
+        min_evidence_coverage: float = 0.0,
+        strict_citations: bool = False,
     ) -> None:
+        self.min_evidence_coverage = min_evidence_coverage
+        self.strict_citations = strict_citations
         self.context_token_budget = context_token_budget
         self.max_chunks_per_doc = max_chunks_per_doc
         self.embedder = embedder
@@ -192,29 +204,53 @@ class RagService:
             passages, token_budget=self.context_token_budget, max_per_doc=self.max_chunks_per_doc
         )
         passages = context.passages  # source numbers in the prompt follow the assembled context
-        messages = build_messages(query, passages)
+        decision = assess_evidence(query, passages, self.min_evidence_coverage)
+        conflicts = detect_conflicts(passages)
+        conflict_lines = [
+            f"{c.family}: " + ", ".join(f"{n} v{v} ({st})" for n, v, st in c.versions) for c in conflicts
+        ]
+        common = dict(
+            question=query, embedding_model=self.embedder.model_name, evidence_coverage=round(decision.coverage, 4),
+            version_conflicts=conflict_lines, context_dropped=dict(context.dropped),
+        )
+        if not decision.sufficient:
+            # Deterministic refusal: no LLM call, and the text is the fixed abstain phrase, not generated content.
+            timings = Timings(retrieval_ms, None, _ms(total))
+            log_event(logger, "answer", status="abstained_no_evidence", coverage=decision.coverage,
+                      missing=len(decision.missing_terms), retrieval_ms=retrieval_ms)
+            return AnswerResult(
+                answer=ABSTAIN_PHRASE, abstained=True, valid_citations=[], invalid_citations=[],
+                sources=self._to_results(passages, set()), timings=timings, usage=Usage(None, None),
+                llm_model="(not called)", status="abstained_no_evidence", **common,
+            )
+        messages = build_messages(query, passages, conflict_note(conflicts))
         gen_start = time.perf_counter()
         response = self.llm.complete(messages)  # raises LLMError; never replaced by a made-up answer
         generation_ms = _ms(gen_start)
-        report = check_citations(response.text, len(passages))
+        validation = validate_answer(response.text, len(passages))
+        abstained = ABSTAIN_PHRASE in response.text
+        if abstained:
+            status = "abstained"
+        elif validation.ok:
+            status = "answered"
+        else:
+            status = "unverified"  # invalid / missing citations or uncited sentences: shown, but flagged
+        text = response.text
+        if status == "unverified" and self.strict_citations:
+            status, text = "withheld", "Answer withheld: it failed citation validation. See the source passages."
         timings = Timings(retrieval_ms, generation_ms, _ms(total))
         result = AnswerResult(
-            question=query,
-            answer=response.text,
-            abstained=ABSTAIN_PHRASE in response.text,
-            valid_citations=list(report.valid),
-            invalid_citations=list(report.invalid),
-            sources=self._to_results(passages, set(report.valid)),
-            timings=timings,
-            usage=Usage(response.prompt_tokens, response.completion_tokens),
-            llm_model=response.model,
-            embedding_model=self.embedder.model_name,
+            answer=text, abstained=abstained, valid_citations=list(validation.valid),
+            invalid_citations=list(validation.invalid), sources=self._to_results(passages, set(validation.valid)),
+            timings=timings, usage=Usage(response.prompt_tokens, response.completion_tokens),
+            llm_model=response.model, status=status, uncited_sentences=list(validation.uncited_sentences), **common,
         )
         log_event(
-            logger, "answer", hits=len(passages), valid_citations=len(report.valid),
-            invalid_citations=len(report.invalid), abstained=result.abstained,
-            retrieval_ms=retrieval_ms, generation_ms=generation_ms, total_ms=timings.total_ms,
-            prompt_tokens=response.prompt_tokens, completion_tokens=response.completion_tokens,
+            logger, "answer", status=status, hits=len(passages), valid_citations=len(validation.valid),
+            invalid_citations=len(validation.invalid), uncited=len(validation.uncited_sentences),
+            conflicts=len(conflicts), retrieval_ms=retrieval_ms, generation_ms=generation_ms,
+            total_ms=timings.total_ms, prompt_tokens=response.prompt_tokens,
+            completion_tokens=response.completion_tokens,
         )
         return result
 
@@ -252,6 +288,8 @@ def build_service(settings: Settings) -> RagService:
         retriever=_build_retriever(settings, store, embedder),
         context_token_budget=settings.context_token_budget,
         max_chunks_per_doc=settings.max_chunks_per_doc,
+        min_evidence_coverage=settings.min_evidence_coverage,
+        strict_citations=settings.strict_citations,
         chunker=SentenceChunker(settings.chunk_max_chars, settings.chunk_overlap_chars),
         llm=llm,
         default_top_k=settings.default_top_k,

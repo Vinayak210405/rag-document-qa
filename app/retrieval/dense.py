@@ -9,7 +9,7 @@ from __future__ import annotations
 from app.embeddings.base import Embedder
 from app.indexing.chroma_store import ChromaVectorStore, IndexSnapshot
 from app.retrieval.similarity import cosine_similarity, top_k
-from app.retrieval.types import RetrievedChunk
+from app.retrieval.types import RetrievedChunk, build_retrieved
 
 
 class DenseRetriever:
@@ -31,20 +31,7 @@ class DenseRetriever:
         if len(snapshot) == 0:
             return []
         scores = cosine_similarity(self._embedder.embed_query(query), snapshot.embeddings)
-        results: list[RetrievedChunk] = []
-        for rank, (index, score) in enumerate(top_k(scores, top_k_), start=1):
-            meta = snapshot.metadatas[index]
-            results.append(
-                RetrievedChunk(
-                    rank=rank,
-                    score=score,
-                    chunk_id=snapshot.ids[index],
-                    doc_id=str(meta["doc_id"]),
-                    doc_name=str(meta["doc_name"]),
-                    ordinal=int(meta["ordinal"]),
-                    page=int(meta["page"]) if "page" in meta else None,
-                    heading=str(meta["heading"]) if "heading" in meta else None,
-                    text=snapshot.texts[index],
-                )
-            )
-        return results
+        return [
+            build_retrieved(snapshot, rank, index, score)
+            for rank, (index, score) in enumerate(top_k(scores, top_k_), start=1)
+        ]

@@ -35,3 +35,28 @@ def check_citations(answer: str, n_sources: int) -> CitationReport:
             seen.add(number)
             (valid if 1 <= number <= n_sources else invalid).append(number)
     return CitationReport(tuple(valid), tuple(invalid))
+
+
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+
+
+@dataclass(frozen=True)
+class AnswerValidation:
+    """Structural checks on an answer. Says nothing about whether cited sources truly SUPPORT the claims."""
+
+    valid: tuple[int, ...]
+    invalid: tuple[int, ...]
+    uncited_sentences: tuple[str, ...]  # sentences with no [n] at all (ignoring the abstain phrase)
+
+    @property
+    def ok(self) -> bool:
+        return not self.invalid and bool(self.valid) and not self.uncited_sentences
+
+
+def validate_answer(answer: str, n_sources: int) -> AnswerValidation:
+    report = check_citations(answer, n_sources)
+    uncited = tuple(
+        s.strip() for s in _SENTENCE_END.split(answer.strip())
+        if s.strip() and not _CITATION.search(s) and len(s.split()) >= 4
+    )
+    return AnswerValidation(report.valid, report.invalid, uncited)

@@ -138,6 +138,8 @@ class ChromaVectorStore:
             meta["page"] = chunk.page
         if chunk.heading:
             meta["heading"] = chunk.heading
+        for key, value in chunk.metadata.items():  # document-level fields; core keys can never be overridden
+            meta.setdefault(key, value)
         return meta
 
     def _fetch_all(self, include: list[str]) -> dict[str, list[Any]]:

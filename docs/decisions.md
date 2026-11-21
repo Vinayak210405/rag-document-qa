@@ -175,3 +175,22 @@ and documented, not hidden. A lexical embedder cannot tell "20 days" from "24 da
 - Context assembly: near-duplicate removal (token Jaccard >= 0.85), per-document cap, token budget. Token counts are
   chars/4 estimates, not the LLM tokenizer. The best passage is always kept.
 - Latency/cost of reranking on real models is unmeasured here.
+
+### D23. Citation validation, evidence gate, version conflicts (Milestone 5)
+- **Answer status** (`answered | abstained | abstained_no_evidence | unverified | withheld`) is computed from deterministic
+  checks: citation numbers must exist in the supplied sources; every sentence of 4+ words needs a `[n]`. `unverified`
+  answers are still shown but flagged; `RAG_STRICT_CITATIONS=true` withholds them. These checks are STRUCTURAL: they
+  do not show that a cited source supports the claim (that needs an entailment/LLM judge; Ragas faithfulness, M8).
+- **Evidence gate** (`RAG_MIN_EVIDENCE_COVERAGE`, default 0 = off): lexical coverage of question terms by the retrieved
+  passages; below threshold the service refuses without calling the LLM (fixed abstain phrase, `llm_model="(not called)"`).
+  Measured on the 24 questions (`docs/results/m5-evidence-gate-hashing.txt`): no threshold separates the classes.
+  Threshold 0.6 refuses 4/6 must-refuse questions but also wrongly refuses 4/18 answerable ones; 0.9 catches 6/6 but
+  wrongly refuses 16/18. The cheap lexical gate is therefore left OFF by default. A paraphrase-robust signal (reranker
+  score / dense similarity with a real embedder) is the next thing to try and is unmeasured here. Thresholds picked on
+  this set would be tuned on their own test data.
+- **Version conflicts**: header metadata (`Document ID`, `Version`, `Effective date`, `Status`) is extracted at ingest,
+  stored on every chunk, and shown to the model; if retrieved passages span several files of one `Document ID`, the
+  prompt gets an explicit version warning and the API lists the conflict. Whether the LLM then picks the current version
+  is NOT verified without a real model.
+- **Bug caught by the corpus test**: text normalisation merges header lines into one paragraph, so line-based header
+  parsing silently found one field; the extractor now matches `Key:` markers, with a regression test on the real files.

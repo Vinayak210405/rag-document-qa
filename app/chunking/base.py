@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 from app.ingestion.models import ParsedDocument
@@ -20,6 +20,7 @@ class Chunk:
     text: str
     page: int | None
     heading: str | None  # section heading in force at the start of the chunk
+    metadata: dict[str, str | int | bool] = field(default_factory=dict)  # document-level fields, not part of the ID
 
     @property
     def char_count(self) -> int:

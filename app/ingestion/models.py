@@ -42,6 +42,7 @@ class ParsedDocument:
     blocks: tuple[Block, ...]
     page_count: int | None
     warnings: tuple[str, ...] = field(default_factory=tuple)
+    metadata: dict[str, str] = field(default_factory=dict)  # header fields: doc_family, doc_version, ...
 
     @property
     def char_count(self) -> int:
