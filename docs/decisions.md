@@ -222,3 +222,16 @@ and documented, not hidden. A lexical embedder cannot tell "20 days" from "24 da
   sentences each, so there is little topic structure to find), the embedder is lexical not semantic, and the labels are small and
   Claude-authored. It does show why "semantic is better" must be measured. Re-run with `--embedder sentence_transformers`
   on a larger corpus before drawing any conclusion.
+
+### D26. Ragas evaluation (Milestone 8)
+- `python -m app.evaluation.ragas_runner` answers all dataset questions through the real pipeline (answer LLM, `RAG_LLM_*`),
+  then scores with Ragas 0.4.3 (`faithfulness`, `answer_relevancy`, `context_precision`, `context_recall`) using a configurable
+  judge (`RAG_JUDGE_MODEL/BASE_URL/API_KEY`, any OpenAI-compatible endpoint; defaults to the answer LLM). Needs
+  `uv sync --extra eval`; pinned `langchain-community<0.4.2` because 0.4.2 removed a module ragas imports.
+- Must-refuse questions are scored deterministically (abstained or not), not by Ragas; faithfulness/answer-relevancy skip
+  refusals (nothing to judge) and false abstentions are counted separately. Per-metric judge failures are recorded per
+  question and counted; if every call fails the run aborts rather than writing an empty-looking result.
+- Deterministic retrieval metrics are untouched and independent of Ragas (`app.evaluation.benchmark`).
+- **Verified here**: the real Ragas metric objects construct and the orchestration works with fake scorers (tested).
+  **NOT verified here**: a live end-to-end run. The sandbox has no LLM or judge endpoint, so **no Ragas scores exist yet**.
+  Judge token usage and cost are not tracked. LLM-judge scores are not ground truth and vary with the judge model.

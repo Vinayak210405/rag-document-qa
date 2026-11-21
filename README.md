@@ -165,4 +165,16 @@ uv run python -m app.evaluation.compare results/<dense>.json results/<hybrid>.js
 ```
 
 Reference runs (stand-in hashing embedder, 24 Claude-authored questions) are in `docs/results/m3-*`. The difference is
-about one question and is not a claim that hybrid beats dense; see decision D21. Tests: 267 passing offline (M7 semantic chunking: D25; M4 reranking + context: D22; M5 validation, abstention, version conflicts: D23; M6 lifecycle: D24). New endpoints: `DELETE /documents/{doc_id}`, `GET /audit`.
+about one question and is not a claim that hybrid beats dense; see decision D21. Tests: 272 passing offline (M8 Ragas runner: D26; M7 semantic chunking: D25; M4 reranking + context: D22; M5 validation, abstention, version conflicts: D23; M6 lifecycle: D24). New endpoints: `DELETE /documents/{doc_id}`, `GET /audit`.
+
+## Ragas evaluation (Milestone 8)
+
+```
+uv sync --extra eval
+# answer model + judge (any OpenAI-compatible endpoint; default is local Ollama)
+RAG_LLM_MODEL=llama3.2:3b RAG_JUDGE_MODEL=llama3.1:8b \
+  uv run python -m app.evaluation.ragas_runner --label hybrid-llama --retriever hybrid \
+  --judge-embedding-model nomic-embed-text
+```
+No Ragas scores are committed: producing them needs an LLM that this repo's CI/sandbox does not have. See decision D26 for
+what is and is not verified. Deterministic retrieval metrics never depend on Ragas.
