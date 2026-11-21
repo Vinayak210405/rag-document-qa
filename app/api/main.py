@@ -15,7 +15,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.api.schemas import (
-    AnswerOut, AskRequest, DocumentOut, HealthOut, IngestOut, RetrieveOut,
+    AnswerOut, AskRequest, AuditOut, DeleteOut, DocumentOut, HealthOut, IngestOut, RetrieveOut,
 )
 from app.config import Settings, get_settings
 from app.embeddings import EmbeddingBackendError
@@ -25,7 +25,7 @@ from app.ingestion import (
     EmptyDocumentError, ExtractionError, IngestionError, UnsupportedFileTypeError,
 )
 from app.retrieval import InvalidQueryError
-from app.service import EmptyIndexError, RagService, build_service
+from app.service import DocumentNotFoundError, EmptyIndexError, RagService, build_service
 from app.utils.logging import configure_logging
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,7 @@ _ERROR_STATUS: list[tuple[type[Exception], int]] = [
     (ExtractionError, 422),
     (IngestionError, 400),
     (EmptyIndexError, 409),
+    (DocumentNotFoundError, 404),
     (IndexMismatchError, 409),
     (StorageError, 503),
     (LLMError, 502),
@@ -96,6 +97,21 @@ def create_app(service: RagService | None = None, settings: Settings | None = No
     @app.get("/documents", response_model=list[DocumentOut])
     def list_documents(svc: RagService = Depends(get_service)):
         return svc.list_documents()
+
+    @app.delete("/documents/{doc_id}", response_model=DeleteOut)
+    def delete_document(doc_id: str, svc: RagService = Depends(get_service)):
+        """Remove a document from the index (dense and lexical views share one store, so both are updated)."""
+        return DeleteOut(doc_id=doc_id, chunks_removed=svc.delete_document(doc_id))
+
+    @app.get("/audit", response_model=AuditOut)
+    def audit(svc: RagService = Depends(get_service)):
+        """Index consistency report: stale chunks, interrupted updates, duplicate positions and texts."""
+        r = svc.audit()
+        return AuditOut(
+            documents=r.documents, chunks=r.chunks, clean=r.clean, stale_chunks=list(r.stale_chunks),
+            mixed_versions=list(r.mixed_versions), duplicate_ordinals=list(r.duplicate_ordinals),
+            duplicate_texts=[list(g) for g in r.duplicate_texts],
+        )
 
     @app.post("/retrieve", response_model=RetrieveOut)
     def retrieve(body: AskRequest, svc: RagService = Depends(get_service)):

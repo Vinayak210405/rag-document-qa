@@ -13,13 +13,14 @@ from app.ingestion.models import (
     UnsupportedFileTypeError,
 )
 from app.ingestion.normalize import safe_filename
+from app.ingestion.validation import validate_signature
 from app.ingestion.parsers import parse_docx, parse_pdf, parse_txt
 
 SUPPORTED_TYPES = {".txt": "txt", ".pdf": "pdf", ".docx": "docx"}
 
 
 def parse_document(
-    filename: str, content: bytes, *, ocr: OcrEngine | None = None
+    filename: str, content: bytes, *, ocr: OcrEngine | None = None, max_pages: int | None = None
 ) -> ParsedDocument:
     """Parse raw file bytes into a normalized, structured document.
 
@@ -37,13 +38,14 @@ def parse_document(
     if not content:
         raise EmptyDocumentError(f"{name} is empty (0 bytes)")
 
+    validate_signature(file_type, content)
     page_count: int | None = None
     if file_type == "txt":
         blocks, warnings = parse_txt(content)
     elif file_type == "docx":
         blocks, warnings = parse_docx(content)
     else:
-        blocks, page_count, warnings = parse_pdf(content, ocr)
+        blocks, page_count, warnings = parse_pdf(content, ocr, max_pages)
 
     if not blocks:
         detail = f" ({'; '.join(warnings)})" if warnings else ""

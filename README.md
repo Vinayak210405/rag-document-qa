@@ -165,4 +165,4 @@ uv run python -m app.evaluation.compare results/<dense>.json results/<hybrid>.js
 ```
 
 Reference runs (stand-in hashing embedder, 24 Claude-authored questions) are in `docs/results/m3-*`. The difference is
-about one question and is not a claim that hybrid beats dense; see decision D21. Tests: 250 passing offline (M4 reranking + context assembly: D22; M5 validation, abstention, version conflicts: D23).
+about one question and is not a claim that hybrid beats dense; see decision D21. Tests: 261 passing offline (M4 reranking + context: D22; M5 validation, abstention, version conflicts: D23; M6 lifecycle: D24). New endpoints: `DELETE /documents/{doc_id}`, `GET /audit`.

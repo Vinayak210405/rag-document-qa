@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     context_token_budget: int = Field(1500, ge=50)
     max_chunks_per_doc: int | None = Field(None, ge=1)
     min_evidence_coverage: float = Field(0.0, ge=0.0, le=1.0)  # 0 = gate off (see decision D23)
+    max_pdf_pages: int | None = Field(500, ge=1)
     strict_citations: bool = False  # withhold answers that fail citation validation
     hybrid_candidates: int = Field(20, ge=1, le=200)
     rrf_k: int = Field(60, ge=0)

@@ -194,3 +194,19 @@ and documented, not hidden. A lexical embedder cannot tell "20 days" from "24 da
   is NOT verified without a real model.
 - **Bug caught by the corpus test**: text normalisation merges header lines into one paragraph, so line-based header
   parsing silently found one field; the extractor now matches `Key:` markers, with a regression test on the real files.
+
+### D24. Document lifecycle (Milestone 6)
+- **Identity**: `doc_id` = sanitised file name (stable across uploads); `content_hash` = sha256 of the bytes;
+  `ingest_version` = 1 on first ingest, +1 whenever the content or the index settings change. Stored on every chunk.
+- **Incremental ingestion**: identical bytes AND identical settings (`chunker|embedding model` signature, ACL groups) are
+  skipped: the file is parsed and hashed but nothing is re-chunked or re-embedded (`status: unchanged`). A settings change
+  (e.g. a different chunker) forces a rebuild of identical bytes.
+- **Update safety**: new chunks are upserted first (IDs are content-derived, so unchanged chunks are overwritten in place),
+  then chunks no longer in the document are deleted. An interruption can leave stale extras (found by `GET /audit`) but
+  never missing content. This is ordering, not a transaction: Chroma has none.
+- **Lexical/dense sync**: both views are built from the same store snapshot, keyed on a write counter, so updates and
+  deletes reach BM25 and dense retrieval together (tested). Limitation: the counter is per process; a second process
+  writing to the same on-disk store would not invalidate this process's cache. Single-writer deployment assumed.
+- **Audit**: reports stale/corrupt chunks (ID != sha256(doc, ordinal, text)), documents with mixed content hashes
+  (interrupted update), duplicate positions, and identical text shared by different documents (informational).
+- Not implemented: keeping old versions queryable, soft deletes, or a persistent incremental BM25 index.

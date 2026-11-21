@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import Protocol
+from dataclasses import dataclass, field, replace
+from typing import Protocol, Sequence
 
 from app.chunking import Chunker, SentenceChunker
 from app.config import Settings
@@ -33,6 +33,10 @@ logger = logging.getLogger(__name__)
 MAX_TOP_K = 20
 
 
+class DocumentNotFoundError(LookupError):
+    """The requested document is not in the index."""
+
+
 class EmptyIndexError(RuntimeError):
     """A question was asked before any document was ingested."""
 
@@ -51,6 +55,8 @@ class IngestReport:
     duration_ms: float
     chunker: str
     embedding_model: str
+    status: str = "new"  # new | updated | unchanged (identical bytes and settings: nothing was re-embedded)
+    ingest_version: int = 1
 
 
 @dataclass(frozen=True)
@@ -132,7 +138,9 @@ class RagService:
         max_chunks_per_doc: int | None = None,
         min_evidence_coverage: float = 0.0,
         strict_citations: bool = False,
+        max_pages: int | None = None,
     ) -> None:
+        self.max_pages = max_pages
         self.min_evidence_coverage = min_evidence_coverage
         self.strict_citations = strict_citations
         self.context_token_budget = context_token_budget
@@ -145,23 +153,58 @@ class RagService:
         self.default_top_k = default_top_k
 
     # ------------------------------------------------------------ ingestion
-    def ingest(self, filename: str, content: bytes) -> IngestReport:
+    @property
+    def index_signature(self) -> str:
+        """Settings that determine what the stored chunks look like; a change forces re-indexing."""
+        return f"{self.chunker.strategy_name}|{self.embedder.model_name}"
+
+    def ingest(self, filename: str, content: bytes, allowed_groups: Sequence[str] | None = None) -> IngestReport:
+        """Index a document. Identical bytes + identical settings are skipped (no parsing cost beyond hashing)."""
         start = time.perf_counter()
-        doc = parse_document(filename, content)
+        doc = parse_document(filename, content, max_pages=self.max_pages)
+        groups = ",".join(sorted(set(allowed_groups))) if allowed_groups else ""
+        state = self.store.document_state(doc.doc_id)
+        if (
+            state is not None and state.content_hash == doc.content_hash
+            and state.index_signature == self.index_signature and state.groups == groups
+        ):
+            log_event(logger, "ingest", doc_id=doc.doc_id, status="unchanged", ms=_ms(start))
+            return IngestReport(
+                doc_id=doc.doc_id, name=doc.name, file_type=doc.file_type, content_hash=doc.content_hash,
+                pages=doc.page_count, chunks=len(state.chunk_ids), chars=doc.char_count, replaced_existing=False,
+                warnings=list(doc.warnings), duration_ms=_ms(start), chunker=self.chunker.strategy_name,
+                embedding_model=self.embedder.model_name, status="unchanged", ingest_version=state.ingest_version,
+            )
         chunks = self.chunker.chunk(doc)
         if not chunks:
             raise EmptyDocumentError(f"{doc.name}: produced no chunks")
+        version = 1 if state is None else state.ingest_version + 1
+        stamp: dict[str, str | int | bool] = {
+            "content_hash": doc.content_hash, "index_signature": self.index_signature, "ingest_version": version,
+            "groups": groups,
+        }
+        chunks = [replace(c, metadata={**c.metadata, **stamp}) for c in chunks]
         embeddings = self.embedder.embed_documents([c.text for c in chunks])
         replaced = self.store.replace_document(doc.doc_id, chunks, embeddings)
         report = IngestReport(
             doc_id=doc.doc_id, name=doc.name, file_type=doc.file_type, content_hash=doc.content_hash,
             pages=doc.page_count, chunks=len(chunks), chars=doc.char_count, replaced_existing=replaced,
             warnings=list(doc.warnings), duration_ms=_ms(start), chunker=self.chunker.strategy_name,
-            embedding_model=self.embedder.model_name,
+            embedding_model=self.embedder.model_name, status="updated" if replaced else "new", ingest_version=version,
         )
         log_event(logger, "ingest", doc_id=doc.doc_id, chunks=report.chunks, chars=report.chars,
-                  replaced=replaced, warnings=len(report.warnings), ms=report.duration_ms)
+                  status=report.status, version=version, warnings=len(report.warnings), ms=report.duration_ms)
         return report
+
+    def delete_document(self, doc_id: str) -> int:
+        """Remove a document from the index; raises DocumentNotFoundError if it is not indexed."""
+        removed = self.store.delete_document(doc_id)
+        if removed == 0:
+            raise DocumentNotFoundError(f"no indexed document with id {doc_id!r}")
+        return removed
+
+    def audit(self):
+        return self.store.audit()
 
     def list_documents(self) -> list[DocumentInfo]:
         return self.store.list_documents()
@@ -290,6 +333,7 @@ def build_service(settings: Settings) -> RagService:
         max_chunks_per_doc=settings.max_chunks_per_doc,
         min_evidence_coverage=settings.min_evidence_coverage,
         strict_citations=settings.strict_citations,
+        max_pages=settings.max_pdf_pages,
         chunker=SentenceChunker(settings.chunk_max_chars, settings.chunk_overlap_chars),
         llm=llm,
         default_top_k=settings.default_top_k,
