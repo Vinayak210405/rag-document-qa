@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     max_chunks_per_doc: int | None = Field(None, ge=1)
     min_evidence_coverage: float = Field(0.0, ge=0.0, le=1.0)  # 0 = gate off (see decision D23)
     max_pdf_pages: int | None = Field(500, ge=1)
+    drop_flagged_passages: bool = False  # drop (instead of just flagging) passages that look like prompt injection
+    auth_tokens: SecretStr | None = None  # JSON, see app/security.py; unset = open API (localhost only)
     strict_citations: bool = False  # withhold answers that fail citation validation
     hybrid_candidates: int = Field(20, ge=1, le=200)
     rrf_k: int = Field(60, ge=0)

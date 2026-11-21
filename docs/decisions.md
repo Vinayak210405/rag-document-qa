@@ -235,3 +235,14 @@ and documented, not hidden. A lexical embedder cannot tell "20 days" from "24 da
 - **Verified here**: the real Ragas metric objects construct and the orchestration works with fake scorers (tested).
   **NOT verified here**: a live end-to-end run. The sandbox has no LLM or judge endpoint, so **no Ragas scores exist yet**.
   Judge token usage and cost are not tracked. LLM-judge scores are not ground truth and vary with the judge model.
+
+### D27. Security and demo readiness (Milestone 9)
+- **Access control before ranking**, not after: post-filtering would let restricted chunks consume top-k slots (changing results
+  for others) and risks leaking them via scores or counts. A user in no group sees only public chunks; unrestricted (`groups=None`)
+  applies when auth is disabled or for admins. `groups` is part of the index signature, so changing a document's groups re-indexes it.
+- **Injection**: heuristics flag rather than silently delete by default (a policy document may legitimately say "ignore the old
+  version"); flagged passages are marked to the model and the UI. Measured only on hand-written positive/negative examples
+  (tests), not on a real attack corpus, so the detection rate is unknown.
+- **Benchmark dashboard**: reads saved result JSON, labels stand-in runs and unverified labels prominently, never recomputes metrics.
+- **Addendum to D21/D25**: on the stand-in setup BM25 alone (MRR 0.819) beat the hybrid (0.796), which beat the lexical stand-in
+  reranker (0.769); semantic chunking (0.741) regressed. All four are stand-in results on 18 questions.

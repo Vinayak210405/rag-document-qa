@@ -36,3 +36,19 @@ def test_upload_sends_multipart_with_the_filename() -> None:
 
     client(handler).upload("a.txt", b"hello")
     assert seen["ctype"].startswith("multipart/form-data") and b'filename="a.txt"' in seen["body"]
+
+
+def test_client_sends_bearer_token_and_upload_groups():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["auth"] = request.headers.get("authorization")
+        seen["body"] = request.content
+        return httpx.Response(200, json={"ok": True})
+
+    client = ApiClient("http://x", transport=httpx.MockTransport(handler), token="secret-token-0123456")
+    client.upload("a.txt", b"hello", "hr,fin")
+    assert seen["auth"] == "Bearer secret-token-0123456" and b"hr,fin" in seen["body"]
+    anon = ApiClient("http://x", transport=httpx.MockTransport(handler))
+    anon.health()
+    assert seen["auth"] is None

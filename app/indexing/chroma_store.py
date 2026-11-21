@@ -57,6 +57,7 @@ class DocumentInfo:
     chunks: int
     content_hash: str | None = None
     ingest_version: int | None = None  # 1 on first ingest, +1 every time the content changes
+    groups: str = ""  # access-control groups ("" = public)
 
 
 @dataclass(frozen=True)
@@ -260,10 +261,10 @@ class ChromaVectorStore:
         data = self._fetch_all(["metadatas"])
         counts: dict[str, list] = {}
         for meta in data["metadatas"]:
-            entry = counts.setdefault(meta["doc_id"], [meta["doc_name"], 0, meta.get("content_hash"), 1])
+            entry = counts.setdefault(meta["doc_id"], [meta["doc_name"], 0, meta.get("content_hash"), 1, str(meta.get("groups", ""))])
             entry[1] += 1
             entry[3] = max(entry[3], int(meta.get("ingest_version", 1)))
         return [
-            DocumentInfo(doc_id=k, name=v[0], chunks=v[1], content_hash=v[2], ingest_version=v[3])
+            DocumentInfo(doc_id=k, name=v[0], chunks=v[1], content_hash=v[2], ingest_version=v[3], groups=v[4])
             for k, v in sorted(counts.items())
         ]

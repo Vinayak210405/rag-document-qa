@@ -13,7 +13,7 @@ class FakeBase:
     def __init__(self, items):
         self.items, self.asked = items, None
 
-    def retrieve(self, q, k):
+    def retrieve(self, q, k, groups=None):
         self.asked = k
         return self.items[:k]
 

@@ -11,7 +11,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.api.schemas import (
@@ -25,6 +25,8 @@ from app.ingestion import (
     EmptyDocumentError, ExtractionError, IngestionError, UnsupportedFileTypeError,
 )
 from app.retrieval import InvalidQueryError
+from app.retrieval.access import chunk_visible
+from app.security import ANONYMOUS, AuthConfig, Principal, parse_auth_tokens
 from app.service import DocumentNotFoundError, EmptyIndexError, RagService, build_service
 from app.utils.logging import configure_logging
 
@@ -60,6 +62,7 @@ def create_app(service: RagService | None = None, settings: Settings | None = No
     app = FastAPI(title="Evaluated Document QA Bot", version="0.1.0", lifespan=lifespan)
     app.state.service = service
     app.state.max_upload_bytes = cfg.max_upload_bytes
+    app.state.auth = parse_auth_tokens(cfg.auth_tokens.get_secret_value() if cfg.auth_tokens else None)
 
     def make_handler(status: int):
         def handler(_: Request, exc: Exception) -> JSONResponse:
@@ -69,6 +72,27 @@ def create_app(service: RagService | None = None, settings: Settings | None = No
 
     for exc_type, status in _ERROR_STATUS:
         app.add_exception_handler(exc_type, make_handler(status))
+
+    def unexpected(_: Request, exc: Exception) -> JSONResponse:
+        # Full detail goes to the log only; the client never sees stack traces, paths or secrets.
+        logger.error("unhandled error: %s", type(exc).__name__, exc_info=exc)
+        return JSONResponse(status_code=500, content={"error": "InternalError", "detail": "unexpected server error; see server logs"})
+
+    app.add_exception_handler(Exception, unexpected)
+
+    def principal(request: Request) -> Principal:
+        auth: AuthConfig = request.app.state.auth
+        if not auth.enabled:
+            return ANONYMOUS
+        found = auth.authenticate(request.headers.get("authorization"))
+        if found is None:
+            raise HTTPException(status_code=401, detail="missing or invalid bearer token", headers={"WWW-Authenticate": "Bearer"})
+        return found
+
+    def admin(user: Principal = Depends(principal)) -> Principal:
+        if not user.admin:
+            raise HTTPException(status_code=403, detail="this operation requires an admin token")
+        return user
 
     def get_service(request: Request) -> RagService:
         svc = request.app.state.service
@@ -85,26 +109,31 @@ def create_app(service: RagService | None = None, settings: Settings | None = No
         )
 
     @app.post("/documents", response_model=IngestOut)
-    def upload_document(request: Request, file: UploadFile = File(...), svc: RagService = Depends(get_service)):
+    def upload_document(
+        request: Request, file: UploadFile = File(...), groups: str = Form(""),
+        svc: RagService = Depends(get_service), _: Principal = Depends(admin),
+    ):
         if not file.filename:
             raise HTTPException(status_code=400, detail="uploaded file has no name")
         limit = request.app.state.max_upload_bytes
         content = file.file.read(limit + 1)
         if len(content) > limit:
             raise HTTPException(status_code=413, detail=f"file exceeds the {limit} byte upload limit")
-        return svc.ingest(file.filename, content)
+        allowed = [g.strip() for g in groups.split(",") if g.strip()]
+        return svc.ingest(file.filename, content, allowed or None)
 
     @app.get("/documents", response_model=list[DocumentOut])
-    def list_documents(svc: RagService = Depends(get_service)):
-        return svc.list_documents()
+    def list_documents(svc: RagService = Depends(get_service), user: Principal = Depends(principal)):
+        # restricted documents are hidden entirely (names included) from callers outside their groups
+        return [d for d in svc.list_documents() if chunk_visible({"groups": d.groups}, user.groups)]
 
     @app.delete("/documents/{doc_id}", response_model=DeleteOut)
-    def delete_document(doc_id: str, svc: RagService = Depends(get_service)):
+    def delete_document(doc_id: str, svc: RagService = Depends(get_service), _: Principal = Depends(admin)):
         """Remove a document from the index (dense and lexical views share one store, so both are updated)."""
         return DeleteOut(doc_id=doc_id, chunks_removed=svc.delete_document(doc_id))
 
     @app.get("/audit", response_model=AuditOut)
-    def audit(svc: RagService = Depends(get_service)):
+    def audit(svc: RagService = Depends(get_service), _: Principal = Depends(admin)):
         """Index consistency report: stale chunks, interrupted updates, duplicate positions and texts."""
         r = svc.audit()
         return AuditOut(
@@ -114,13 +143,13 @@ def create_app(service: RagService | None = None, settings: Settings | None = No
         )
 
     @app.post("/retrieve", response_model=RetrieveOut)
-    def retrieve(body: AskRequest, svc: RagService = Depends(get_service)):
+    def retrieve(body: AskRequest, svc: RagService = Depends(get_service), user: Principal = Depends(principal)):
         """Retrieval only: inspect the evidence without calling the LLM."""
-        return svc.retrieve(body.question, body.top_k)
+        return svc.retrieve(body.question, body.top_k, user.groups)
 
     @app.post("/ask", response_model=AnswerOut)
-    def ask(body: AskRequest, svc: RagService = Depends(get_service)):
-        return svc.answer(body.question, body.top_k)
+    def ask(body: AskRequest, svc: RagService = Depends(get_service), user: Principal = Depends(principal)):
+        return svc.answer(body.question, body.top_k, user.groups)
 
     return app
 

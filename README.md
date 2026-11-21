@@ -1,39 +1,52 @@
 # Evaluated Document QA Bot with RAG
 
-An evaluation-driven retrieval-augmented generation system for question answering over private documents,
-with verifiable citations and measured retrieval/generation quality. Built incrementally; each milestone has a
-verification path. The retrieval core is implemented in this repo, not hidden behind an orchestration framework
-(see [docs/decisions.md](docs/decisions.md)).
+An evaluation-driven retrieval-augmented generation system for question answering over private documents, with
+verifiable citations and *measured* retrieval and answer quality. The retrieval core (chunking, cosine top-k, BM25, RRF,
+rerank orchestration, context assembly, citation validation, metrics, benchmark runner, document lifecycle) is written in this
+repo rather than hidden behind an orchestration framework. Design reasoning: [docs/decisions.md](docs/decisions.md) (D1-D26),
+architecture: [docs/architecture.md](docs/architecture.md), threat model: [docs/security.md](docs/security.md).
+
+> **Read this first: what has and has not been measured.** Every benchmark number in this repo comes from an *offline stand-in*
+> (a bag-of-words hashing embedder, and for reranking a lexical stand-in) on a 24-question, Claude-authored, not human-verified
+> set over 7 short documents. They prove the harness works and show how to compare configurations; they say nothing about
+> how the system performs with real models. No cross-encoder, `bge`, LLM-judged (Ragas) or end-to-end LLM numbers exist yet,
+> because the build sandbox has no model downloads or LLM. Commands to produce them are below.
 
 ## Status
 
 | Milestone | Scope | Status |
 |---|---|---|
-| 0 | Foundation: structure, config, sample corpus, labelled eval set, offline tests | Done |
-| 1 | Baseline RAG: ingestion, chunking, embeddings, ChromaDB, own cosine top-k, grounded answers, API + UI | **Implemented, verified offline** (real embedding model and Ollama not yet run; see "Verification status") |
-| 2 | Evaluation: Recall@k, MRR, nDCG, benchmark runner, run comparison | **Implemented, verified offline** (numbers so far come from the non-semantic stand-in embedder only) |
-| 3 | Hybrid retrieval: BM25 + RRF | Not started |
-| 4 | Cross-encoder reranking, context assembly | Not started |
-| 5 | Citation validation, abstention | Not started |
-| 6 | Document lifecycle: incremental ingest, update, delete | Not started |
-| 7 | Semantic chunking | Not started |
-| 8 | Ragas metrics | Not started |
-| 9 | Security, benchmark dashboard, demo docs | Not started |
-| 10 | LlamaIndex pipeline over the same Chroma index, benchmarked against ours | Not started |
+| 0 | Foundation: structure, config, sample corpus, labelled eval set | Done |
+| 1 | Baseline RAG: ingestion, sentence chunking, embeddings, ChromaDB, own cosine top-k, grounded answers, API + UI | Done, tested offline |
+| 2 | Metrics (Hit/Recall/MRR/nDCG), benchmark runner, run comparison, random control | Done, tested offline |
+| 3 | Own BM25 + Reciprocal Rank Fusion, hybrid retriever | Done, tested offline |
+| 4 | Reranker orchestration + cross-encoder wrapper, context assembly (dedupe, per-doc cap, token budget) | Done; cross-encoder itself **not run** here |
+| 5 | Citation validation, abstention, evidence gate, version-conflict handling | Done, tested offline; LLM behaviour **not run** here |
+| 6 | Document lifecycle: hashes, incremental ingest, versions, safe update order, delete, audit | Done, tested offline |
+| 7 | Semantic chunker + chunking ablation | Done, tested offline |
+| 8 | Ragas runner (configurable judge) | Done with fake scorers; **no live run, no Ragas scores** |
+| 9 | File validation, injection safeguards, access control, safe errors, benchmark dashboard, docs | Done, tested offline |
+| 10 | LlamaIndex comparison over the same Chroma index | In progress (D28) |
 
-No benchmark results exist yet; none are claimed. See [docs/claims.md](docs/claims.md) for what each milestone earns.
+Tests: run `uv run pytest`. Everything runs offline in ~15 s; two opt-in tests (`-m requires_model`, `-m requires_api`) need a model
+download / a running LLM.
 
-## Architecture (Milestone 1)
+## Architecture
 
 ```
-OFFLINE   file --> parse + normalize --> blocks (heading/body, page) --> sentence-aware chunks --> embed --> ChromaDB
-ONLINE    question --> validate --> embed --> our cosine + top-k over stored vectors --> grounded prompt --> LLM --> citation check
-UI        Streamlit  --HTTP-->  FastAPI  -->  RagService  -->  (modules above)
+OFFLINE  file -> validate bytes -> parse (txt/pdf/docx) -> blocks (heading/body, page) + header metadata
+              -> chunker (sentence | semantic) -> embed -> ChromaDB (vectors + text + provenance + metadata + ACL groups)
+ONLINE   question -> validate -> [ACL filter] dense cosine top-k (ours)  +  BM25 top-k (ours)  -> RRF
+              -> optional cross-encoder rerank -> context assembly (dedupe, per-doc cap, token budget)
+              -> safeguards (sanitise + injection scan) -> evidence gate -> grounded prompt (+ version warning) -> LLM
+              -> citation validation -> status: answered | abstained | abstained_no_evidence | unverified | withheld
+UI       Streamlit --HTTP--> FastAPI --> RagService --> modules above
+EVAL     dataset (quote-based labels) -> benchmark runner -> JSON/CSV  |  Ragas runner (LLM judge) -> JSON
 ```
 
-Code map: `app/ingestion` (parsers) | `app/chunking` | `app/embeddings` | `app/indexing` (Chroma) | `app/retrieval`
-(similarity maths, dense retriever) | `app/generation` (prompt, LLM client, citations) | `app/service.py` (orchestration) |
-`app/api` | `frontend/`. Design reasoning: [docs/decisions.md](docs/decisions.md).
+Code map: `app/ingestion` | `app/chunking` | `app/embeddings` | `app/indexing` | `app/retrieval` (similarity, BM25, fusion, hybrid,
+rerank, context, access) | `app/generation` (prompt, LLM client, citations, evidence, conflicts, safety) | `app/evaluation` |
+`app/security.py` | `app/service.py` | `app/api` | `frontend/`.
 
 ## Setup
 
@@ -41,97 +54,80 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```powershell
 uv sync                  # core dependencies + pytest (no PyTorch)
-uv run pytest            # 233 tests, fully offline, ~15 s
+uv run pytest            # offline
 ```
+Extras: `--extra embeddings` (PyTorch, sentence-transformers: real embeddings and the cross-encoder), `--extra eval` (Ragas),
+`--extra llamaindex` (comparison).
 
-**Windows tip:** if your system Python is broken or missing, make uv use its own, permanently:
-`[Environment]::SetEnvironmentVariable("UV_PYTHON_PREFERENCE","only-managed","User")` then reopen PowerShell.
+**Windows tip:** if your system Python is broken or missing, make uv use its own:
+`[Environment]::SetEnvironmentVariable("UV_PYTHON_PREFERENCE","only-managed","User")`, then reopen PowerShell.
 
-### Run it offline in two minutes (no downloads; retrieval only needs no LLM)
+### Offline demo (no downloads, no LLM)
 
 ```powershell
 $env:RAG_EMBEDDING_BACKEND = "hashing"      # non-semantic stand-in embedder
-uv run uvicorn app.api.main:app             # terminal 1: API on http://127.0.0.1:8000 (docs at /docs)
-uv run streamlit run frontend/app.py        # terminal 2: UI on http://localhost:8501
+uv run uvicorn app.api.main:app             # terminal 1: http://127.0.0.1:8000  (interactive docs at /docs)
+uv run streamlit run frontend/app.py        # terminal 2: http://localhost:8501
 ```
-Upload files from `data/sample_corpus/` in the sidebar and tick "Retrieve only" to inspect evidence without an LLM.
+Upload files from `data/sample_corpus/`, tick "Retrieve only" to inspect evidence, and open the **Benchmarks** tab.
 
-### Run it for real (semantic embeddings + a local LLM)
+### Real demo (semantic embeddings + local LLM)
 
-1. `uv sync --extra embeddings` (installs PyTorch; the model, ~130 MB, downloads on first use).
+1. `uv sync --extra embeddings` (the ~130 MB `bge-small` model downloads on first use).
 2. Install [Ollama](https://ollama.com), then `ollama pull llama3.2:3b`.
-3. Copy `.env.example` to `.env` (defaults already point at Ollama), then start the API and UI as above, without the
-   `RAG_EMBEDDING_BACKEND` override.
+3. Copy `.env.example` to `.env`; set e.g. `RAG_RETRIEVER=hybrid`. Start the API and UI as above, without the hashing override.
 
-**An index is tied to the embedding model that built it.** If you switch models (e.g. hashing to bge) the API refuses to
-start with `IndexMismatchError`. Use a new `RAG_STORAGE_DIR` or delete the `storage/` folder.
+An index is tied to the embedding model and chunker that built it: switching the model raises `IndexMismatchError` (use a new
+`RAG_STORAGE_DIR`); changing the chunker or ACL groups re-indexes identical files automatically.
 
 ## API
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /health` | Status, document/chunk counts, embedding model |
-| `POST /documents` | Upload PDF/DOCX/TXT (multipart `file`); re-uploading a name replaces it |
-| `GET /documents` | List indexed documents |
-| `POST /retrieve` | `{"question", "top_k"}`: ranked passages only, no LLM |
-| `POST /ask` | Same input: answer + citations + sources + timings + token usage |
+| `GET /health` | Liveness, counts, embedding model (always open) |
+| `POST /documents` | Upload PDF/DOCX/TXT (multipart `file`, optional `groups`). Identical re-upload: `status: unchanged`; changed: `updated` with `ingest_version` + 1. Admin |
+| `GET /documents` | Indexed documents (restricted ones hidden from callers outside their groups) |
+| `DELETE /documents/{doc_id}` | Remove a document; dense and lexical views update together. Admin |
+| `GET /audit` | Stale chunks, interrupted updates, duplicate positions/texts. Admin |
+| `POST /retrieve` | `{"question","top_k"}`: ranked passages only, no LLM |
+| `POST /ask` | Answer + `status` + citations + sources + version conflicts + injection flags + timings + token usage |
+
+Errors: 401/403 auth, 404 unknown document, 409 nothing indexed or model mismatch, 413 too large, 415 unsupported type, 422 invalid
+or empty/scanned/fake file or question, 500 generic (details only in server logs), 502 LLM unreachable (never a made-up
+answer), 503 backend unavailable. Authentication is off unless `RAG_AUTH_TOKENS` is set (see [docs/security.md](docs/security.md)).
+
+## Evaluation
 
 ```powershell
-curl.exe -F "file=@data/sample_corpus/expense_policy.txt" http://127.0.0.1:8000/documents
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/ask -ContentType "application/json" `
-  -Body '{"question":"What is the daily meal allowance for international travel?"}'
+uv run python -m app.evaluation.benchmark --label dense  --retriever dense  --embedder hashing
+uv run python -m app.evaluation.benchmark --label hybrid --retriever hybrid --embedder hashing
+uv run python -m app.evaluation.benchmark --label rr --retriever reranked --reranker cross-encoder/ms-marco-MiniLM-L-6-v2 --embedder sentence_transformers
+uv run python -m app.evaluation.benchmark --label sem --retriever hybrid --chunking semantic --embedder sentence_transformers
+uv run python -m app.evaluation.compare results\a.json results\b.json      # deltas + better/worse/same question counts
+uv run python -m app.evaluation.abstention --embedder hashing                 # evidence-gate measurement (no LLM)
 ```
-Errors: 415 unsupported type, 422 bad/empty/scanned file or invalid question, 409 nothing indexed (or model mismatch),
-413 file too large, 502 LLM unreachable (never a made-up answer), 503 embedding backend unavailable.
+Metrics: Hit@k, Recall@k over *required* evidence, MRR (truncated at retrieval depth), graded nDCG@k judged by content over the
+whole index; every run records a random-ranking control, tie/no-signal flags, outdated-source-above-gold rate, latency and a
+`results_sha256` (same config + dataset reproduces it). Retrieval metrics never depend on Ragas.
 
-## Evaluation (Milestone 2)
+### Ablation A-D on the same 24 questions (stand-in embedder; NOT semantic; `docs/results/`)
 
-```powershell
-# Retrieval benchmark: builds a fresh in-memory index, scores every question, saves JSON + CSV under results\
-uv run python -m app.evaluation.benchmark --label dense-hashing --embedder hashing
-# With the real model (after: uv sync --extra embeddings)
-uv run python -m app.evaluation.benchmark --label dense-bge --embedder sentence_transformers
-# Compare two runs: deltas plus how many questions got better / worse / stayed the same
-uv run python -m app.evaluation.compare results\run_a.json results\run_b.json
-```
+| Configuration | MRR | Hit@1 | Hit@5 | Recall@5 | nDCG@5 | chunks |
+|---|---|---|---|---|---|---|
+| A. dense only | 0.778 | 0.667 | 0.889 | 0.861 | 0.785 | 12 |
+| (BM25 only) | 0.819 | 0.722 | 0.944 | 0.944 | 0.848 | 12 |
+| B. dense + BM25 + RRF | 0.796 | 0.667 | 0.944 | 0.917 | 0.810 | 12 |
+| C. hybrid + lexical STAND-IN reranker | 0.769 | 0.611 | 0.944 | 0.917 | 0.800 | 12 |
+| D. hybrid, semantic chunking | 0.741 | 0.611 | 0.889 | 0.861 | 0.756 | 31 |
 
-Metrics (details in [docs/decisions.md](docs/decisions.md), D15-D20): Hit@k, Recall@k (share of *required* evidence found),
-reciprocal rank (MRR is its mean, truncated at the retrieval depth), and graded nDCG@k where every chunk in the index is
-judged by content. Every run also records a **random-ranking control**, tie/no-signal flags, and the outdated-source-above-gold
-rate, because averages alone can mislead on a tiny index. Same configuration + same dataset reproduces the same
-`results_sha256`; the runner refuses to run if the dataset no longer matches the corpus.
-
-### Reference run (stand-in embedder, NOT semantic) - `docs/results/m2-dense-hashing-20261105T120543Z-19560425`
-
-| Metric (18 answerable questions) | Pipeline | Random ranking |
-|---|---|---|
-| MRR@5 | 0.778 | 0.219 |
-| Hit@1 | 0.667 | 0.103 |
-| Hit@3 | 0.889 | 0.285 |
-| Hit@5 | 0.889 | 0.462 |
-| Recall@5 (required evidence) | 0.861 | 0.418 |
-| nDCG@5 | 0.785 | 0.260 |
-
-How to read this honestly:
-- These numbers describe the offline **hashing** embedder (bag of words), not a semantic model. They exist to prove the
-  harness works. The meaningful baseline is the real `bge-small` run, which has not been done yet.
-- The index has only 12 chunks, so even random ranking reaches Hit@5 of 0.46. Compare against the control, not against 1.0.
-- Two questions have their gold rank decided by a score tie and one by a zero score; the conflicting-documents questions
-  fail partly because `v1` sorts before `v2` when scores tie (D20).
-- The questions are Claude-authored and not human-verified; categories have 2-4 questions each. Differences are indicative only.
-
-## Configuration
-
-All settings use the `RAG_` prefix; see `.env.example`. Never commit `.env`. Chunk sizes are in characters.
-
-## Verification status (Milestone 1)
-
-| Verified here | Not verified here |
-|---|---|
-| 221 automated tests, incl. real ChromaDB on disk, PDF (hand-built), DOCX, TXT parsing | The real `bge-small` model (no Hugging Face access in the build sandbox): only the wrapper is tested, with a stub; its API names were checked against the sentence-transformers 6.1.0 wheel source. Run `uv run pytest -m requires_model` |
-| Real uvicorn server over HTTP: upload, retrieve, ask, error statuses, restart persistence | A real LLM (Ollama). Only an OpenAI-compatible stand-in server was used. Run `uv run pytest -m requires_api` |
-| Real Streamlit server boots; UI driven headlessly against the live API | A browser session, and anything on Windows |
-| 7 injected bugs in core logic were all caught by the tests | Retrieval *quality* (no metrics until Milestone 2) |
+What this does and does not show:
+- On this setup **BM25 alone beat the hybrid**, and the lexical stand-in reranker and semantic chunking both **regressed** versus
+  hybrid. Reporting those regressions is the point: a more complex pipeline is not assumed to be better.
+- The embedder is bag-of-words, so "dense" here is itself lexical; BM25 + RRF may help or hurt very differently with `bge`.
+  The reranker is a stand-in, not a cross-encoder. Semantic chunking cost ~10x the embeddings at ingest (D25).
+- 12-31 chunks, 18 answerable questions: one question moves a metric by ~0.05. These are smoke-test numbers.
+- **Evidence gate** (`--embedder hashing`, D23): no lexical-coverage threshold separates answerable from unanswerable questions
+  (0.6 refuses 4/6 must-refuse but also 4/18 answerable), so the gate ships **off** by default.
 
 ## Evaluation dataset (v0.1.0)
 
@@ -154,27 +150,39 @@ multi-document (2), multi-hop (2), conflicting/outdated (3), unanswerable (3), i
 - Corpus and questions were written by the same author (an LLM), so lexical overlap between question and source
   may be unrealistically high or low in places.
 
-## Hybrid retrieval (Milestone 3)
+## Ragas and end-to-end evaluation (Milestone 8)
 
-`RAG_RETRIEVER=hybrid` fuses dense cosine and our own BM25 with Reciprocal Rank Fusion. Benchmark and compare:
-
-```
-uv run python -m app.evaluation.benchmark --label dense  --retriever dense  --embedder hashing
-uv run python -m app.evaluation.benchmark --label hybrid --retriever hybrid --embedder hashing
-uv run python -m app.evaluation.compare results/<dense>.json results/<hybrid>.json
-```
-
-Reference runs (stand-in hashing embedder, 24 Claude-authored questions) are in `docs/results/m3-*`. The difference is
-about one question and is not a claim that hybrid beats dense; see decision D21. Tests: 272 passing offline (M8 Ragas runner: D26; M7 semantic chunking: D25; M4 reranking + context: D22; M5 validation, abstention, version conflicts: D23; M6 lifecycle: D24). New endpoints: `DELETE /documents/{doc_id}`, `GET /audit`.
-
-## Ragas evaluation (Milestone 8)
-
-```
+```powershell
 uv sync --extra eval
-# answer model + judge (any OpenAI-compatible endpoint; default is local Ollama)
-RAG_LLM_MODEL=llama3.2:3b RAG_JUDGE_MODEL=llama3.1:8b \
-  uv run python -m app.evaluation.ragas_runner --label hybrid-llama --retriever hybrid \
-  --judge-embedding-model nomic-embed-text
+$env:RAG_LLM_MODEL="llama3.2:3b"; $env:RAG_JUDGE_MODEL="llama3.1:8b"
+uv run python -m app.evaluation.ragas_runner --label hybrid-llama --retriever hybrid --judge-embedding-model nomic-embed-text
 ```
-No Ragas scores are committed: producing them needs an LLM that this repo's CI/sandbox does not have. See decision D26 for
-what is and is not verified. Deterministic retrieval metrics never depend on Ragas.
+Answers every question through the real pipeline, scores faithfulness, answer relevancy, context precision and context recall with
+a configurable judge (any OpenAI-compatible endpoint; `RAG_JUDGE_*`), and scores abstention on must-refuse questions
+deterministically. **Not yet run**: it needs an LLM. Judge scores are not ground truth and vary with the judge model.
+
+## Security (Milestone 9)
+
+Upload validation (magic bytes, zip-bomb limits, page cap, size cap), prompt-injection heuristics + delimiting + sanitising,
+group-based access control enforced *before* ranking, optional bearer-token auth, safe 500s, no secrets in Git. These reduce risk;
+they do not make processing untrusted documents safe. Details and limits: [docs/security.md](docs/security.md).
+
+## Configuration
+
+All settings use the `RAG_` prefix; see `.env.example`. Never commit `.env`. Sizes are in characters, token counts are estimates
+(chars / 4). Key options: `RAG_RETRIEVER` (dense|hybrid|reranked), `RAG_CHUNKING` (sentence|semantic), `RAG_RERANKER_MODEL`,
+`RAG_CONTEXT_TOKEN_BUDGET`, `RAG_MIN_EVIDENCE_COVERAGE`, `RAG_STRICT_CITATIONS`, `RAG_DROP_FLAGGED_PASSAGES`, `RAG_AUTH_TOKENS`.
+
+## Known limitations
+
+- Citation checks are structural (numbers exist, sentences cited); they do not prove a source *supports* a claim. Not claimed to
+  eliminate hallucination.
+- Brute-force exact search and an in-memory BM25 rebuilt per index change: fine to ~1e5 chunks, not beyond. Single-writer assumed.
+- Scanned PDFs need OCR (extension point exists; no engine bundled). Token budgets are estimates.
+- Access control and token auth are application-level and basic (static tokens, no expiry); see docs/security.md.
+- No human-verified labels yet; the 24-question set is a smoke test (see Dataset limitations above).
+
+## Interview prompts this repo supports
+
+Why RRF instead of score fusion? Why filter by ACL before top-k? What does nDCG with a random control tell you on a 12-chunk
+index? Why can an LLM judge not be treated as ground truth? What fails when the update path crashes between upsert and delete?

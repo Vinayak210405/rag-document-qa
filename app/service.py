@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field, replace
-from typing import Protocol, Sequence
+from typing import Collection, Protocol, Sequence
 
 from app.chunking import Chunker, SemanticChunker, SentenceChunker
 from app.config import Settings
@@ -23,6 +23,7 @@ from app.retrieval.dense import DenseRetriever
 from app.retrieval.hybrid import HybridRetriever
 from app.generation.conflicts import conflict_note, detect_conflicts
 from app.generation.evidence import assess_evidence
+from app.generation.safety import apply_safeguards
 from app.retrieval.context import assemble_context
 from app.retrieval.rerank import CrossEncoderReranker, LexicalOverlapReranker, RerankedRetriever
 from app.retrieval.types import RetrievedChunk
@@ -114,10 +115,11 @@ class AnswerResult:
     uncited_sentences: list[str] = field(default_factory=list)
     version_conflicts: list[str] = field(default_factory=list)  # human-readable, e.g. "HR-POL-004: v1 (superseded), v2 (current)"
     context_dropped: dict[str, str] = field(default_factory=dict)  # chunk_id -> reason
+    injection_flags: dict[str, list[str]] = field(default_factory=dict)  # chunk_id -> matched heuristics
 
 
 class Retriever(Protocol):
-    def retrieve(self, query: str, top_k_: int) -> list[RetrievedChunk]: ...
+    def retrieve(self, query: str, top_k_: int, groups: Collection[str] | None = None) -> list[RetrievedChunk]: ...
 
 
 def _ms(start: float) -> float:
@@ -139,8 +141,10 @@ class RagService:
         min_evidence_coverage: float = 0.0,
         strict_citations: bool = False,
         max_pages: int | None = None,
+        drop_flagged_passages: bool = False,
     ) -> None:
         self.max_pages = max_pages
+        self.drop_flagged_passages = drop_flagged_passages
         self.min_evidence_coverage = min_evidence_coverage
         self.strict_citations = strict_citations
         self.context_token_budget = context_token_budget
@@ -210,7 +214,7 @@ class RagService:
         return self.store.list_documents()
 
     # ------------------------------------------------------------ retrieval / QA
-    def _retrieve(self, question: str, top_k: int | None) -> tuple[str, list[RetrievedChunk], float]:
+    def _retrieve(self, question: str, top_k: int | None, groups: Collection[str] | None = None) -> tuple[str, list[RetrievedChunk], float]:
         query = normalize_query(question)
         k = top_k if top_k is not None else self.default_top_k
         if not 1 <= k <= MAX_TOP_K:
@@ -218,7 +222,7 @@ class RagService:
         if self.store.count() == 0:
             raise EmptyIndexError("no documents have been ingested yet")
         start = time.perf_counter()
-        passages = self.retriever.retrieve(query, k)
+        passages = self.retriever.retrieve(query, k, groups)
         return query, passages, _ms(start)
 
     @staticmethod
@@ -232,21 +236,22 @@ class RagService:
             for i, p in enumerate(passages, start=1)
         ]
 
-    def retrieve(self, question: str, top_k: int | None = None) -> RetrievalResult:
+    def retrieve(self, question: str, top_k: int | None = None, groups: Collection[str] | None = None) -> RetrievalResult:
         """Retrieval only (no LLM): lets you inspect evidence without a model running."""
         total = time.perf_counter()
-        query, passages, retrieval_ms = self._retrieve(question, top_k)
+        query, passages, retrieval_ms = self._retrieve(question, top_k, groups)
         timings = Timings(retrieval_ms=retrieval_ms, generation_ms=None, total_ms=_ms(total))
         log_event(logger, "retrieve", question_chars=len(query), hits=len(passages), ms=retrieval_ms)
         return RetrievalResult(query, self._to_results(passages, set()), timings, self.embedder.model_name)
 
-    def answer(self, question: str, top_k: int | None = None) -> AnswerResult:
+    def answer(self, question: str, top_k: int | None = None, groups: Collection[str] | None = None) -> AnswerResult:
         total = time.perf_counter()
-        query, passages, retrieval_ms = self._retrieve(question, top_k)
+        query, passages, retrieval_ms = self._retrieve(question, top_k, groups)
         context = assemble_context(
             passages, token_budget=self.context_token_budget, max_per_doc=self.max_chunks_per_doc
         )
-        passages = context.passages  # source numbers in the prompt follow the assembled context
+        safety = apply_safeguards(context.passages, drop_flagged=self.drop_flagged_passages)
+        passages = safety.passages  # source numbers in the prompt follow the assembled, sanitised context
         decision = assess_evidence(query, passages, self.min_evidence_coverage)
         conflicts = detect_conflicts(passages)
         conflict_lines = [
@@ -255,6 +260,7 @@ class RagService:
         common = dict(
             question=query, embedding_model=self.embedder.model_name, evidence_coverage=round(decision.coverage, 4),
             version_conflicts=conflict_lines, context_dropped=dict(context.dropped),
+            injection_flags=safety.flagged,
         )
         if not decision.sufficient:
             # Deterministic refusal: no LLM call, and the text is the fixed abstain phrase, not generated content.
@@ -342,6 +348,7 @@ def build_service(settings: Settings) -> RagService:
         min_evidence_coverage=settings.min_evidence_coverage,
         strict_citations=settings.strict_citations,
         max_pages=settings.max_pdf_pages,
+        drop_flagged_passages=settings.drop_flagged_passages,
         chunker=make_chunker(settings, embedder),
         llm=llm,
         default_top_k=settings.default_top_k,

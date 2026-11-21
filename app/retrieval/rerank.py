@@ -15,7 +15,7 @@ Rerankers:
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Protocol, Sequence
+from typing import Collection, Protocol, Sequence
 
 from app.retrieval.bm25 import tokenize
 from app.retrieval.types import RetrievedChunk
@@ -78,8 +78,8 @@ class RerankedRetriever:
             raise ValueError("candidates must be >= 1")
         self._base, self._reranker, self.candidates = base, reranker, candidates
 
-    def retrieve(self, query: str, top_k_: int) -> list[RetrievedChunk]:
-        pool = self._base.retrieve(query, max(self.candidates, top_k_))
+    def retrieve(self, query: str, top_k_: int, groups: Collection[str] | None = None) -> list[RetrievedChunk]:
+        pool = self._base.retrieve(query, max(self.candidates, top_k_), groups)
         if not pool:
             return []
         scores = self._reranker.score(query, [c.text for c in pool])

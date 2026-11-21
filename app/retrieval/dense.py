@@ -6,8 +6,13 @@ approximate index (Chroma's HNSW) and compare it against this baseline.
 
 from __future__ import annotations
 
+from typing import Collection
+
+import numpy as np
+
 from app.embeddings.base import Embedder
 from app.indexing.chroma_store import ChromaVectorStore, IndexSnapshot
+from app.retrieval.access import visible_mask
 from app.retrieval.similarity import cosine_similarity, top_k
 from app.retrieval.types import RetrievedChunk, build_retrieved
 
@@ -26,12 +31,12 @@ class DenseRetriever:
             self._snapshot_version = self._store.version
         return self._snapshot
 
-    def retrieve(self, query: str, top_k_: int) -> list[RetrievedChunk]:
+    def retrieve(self, query: str, top_k_: int, groups: Collection[str] | None = None) -> list[RetrievedChunk]:
         snapshot = self._current_snapshot()
         if len(snapshot) == 0:
             return []
         scores = cosine_similarity(self._embedder.embed_query(query), snapshot.embeddings)
-        return [
-            build_retrieved(snapshot, rank, index, score)
-            for rank, (index, score) in enumerate(top_k(scores, top_k_), start=1)
-        ]
+        if groups is not None:
+            scores = np.where(visible_mask(snapshot.metadatas, groups), scores, -np.inf)
+        hits = [(i, sc) for i, sc in top_k(scores, top_k_) if np.isfinite(sc)]  # drop invisible chunks
+        return [build_retrieved(snapshot, rank, index, score) for rank, (index, score) in enumerate(hits, start=1)]

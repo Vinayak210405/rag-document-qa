@@ -58,6 +58,7 @@ class AnswerOut(BaseModel):
     uncited_sentences: list[str] = []
     version_conflicts: list[str] = []
     context_dropped: dict[str, str] = {}
+    injection_flags: dict[str, list[str]] = {}
 
 
 class IngestOut(BaseModel):
@@ -83,6 +84,7 @@ class DocumentOut(BaseModel):
     chunks: int
     content_hash: str | None = None
     ingest_version: int | None = None
+    groups: str = ""
 
 
 class DeleteOut(BaseModel):
